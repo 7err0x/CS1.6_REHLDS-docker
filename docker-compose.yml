@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         HLDS_BASE_IMAGE: ${HLDS_BASE_IMAGE:-ghcr.io/blsalin/rehlds-cstrike:edge}
+        AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
     image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
     container_name: cs16-respawn0
     restart: unless-stopped
@@ -15,6 +16,8 @@ services:
     volumes:
       # Merged into the image cstrike tree; server.cfg chain loads config/server.cfg last.
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
+      # AMXX admins (edit on host; see README). Matches image default baked at build time.
+      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
       # Optional: custom ReUnion rules (cid_* / AuthVersion). Copy defaults from the image first.
       # - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
       # If a map needs a missing texture WAD, copy it from your Steam cstrike folder and uncomment:
