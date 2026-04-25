@@ -1,0 +1,33 @@
+services:
+  cs16:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        HLDS_BASE_IMAGE: ${HLDS_BASE_IMAGE:-ghcr.io/blsalin/rehlds-cstrike:edge}
+    image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+    container_name: cs16-respawn0
+    restart: unless-stopped
+    platform: linux/amd64
+    ports:
+      - "${SERVER_PORT:-27016}:27015/tcp"
+      - "${SERVER_PORT:-27016}:27015/udp"
+    volumes:
+      # Merged into the image cstrike tree; server.cfg chain loads config/server.cfg last.
+      - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
+      # Optional: custom ReUnion rules (cid_* / AuthVersion). Copy defaults from the image first.
+      # - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
+      # If a map needs a missing texture WAD, copy it from your Steam cstrike folder and uncomment:
+      # - ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro
+    # Appended after the image ENTRYPOINT (hlds_run ... +map de_dust2). Last +map wins.
+    command:
+      - "+maxplayers"
+      - "${MAX_PLAYERS:-16}"
+      - "+rcon_password"
+      - "${RCON_PASSWORD:-changeme}"
+      - "+hostname"
+      - "${SERVER_HOSTNAME:-CS16-Respawn-Docker}"
+      - "+log"
+      - "on"
+      - "+map"
+      - "${START_MAP:-fy_iceworld}"
