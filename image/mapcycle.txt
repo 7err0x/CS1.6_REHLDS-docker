@@ -1,0 +1,13 @@
+// Respawn-friendly rotation: tight community arenas first, then medium stock maps.
+// Community BSPs are baked in the image; Valve stock maps ship with HLDS cstrike.
+
+fy_iceworld
+aim_map
+fy_snow
+awp_india
+de_dust2
+de_inferno
+de_nuke
+cs_office
+de_train
+cs_italy
