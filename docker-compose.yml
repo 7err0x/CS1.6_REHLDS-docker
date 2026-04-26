@@ -9,6 +9,8 @@ x-hlds-entrypoint: &hlds_entrypoint
 services:
   cs16:
     entrypoint: *hlds_entrypoint
+    profiles:
+      - respawn
     build:
       context: .
       dockerfile: Dockerfile
@@ -83,3 +85,21 @@ services:
       - "on"
       - "+map"
       - "${BIOHAZARD_START_MAP:-cs_estate}"
+
+  # HTTP FastDL: nginx image built from GAME_IMAGE — copies maps/models/sound/… baked into cs16 image.
+  # Build game first, then fastdl: docker compose build cs16 fastdl
+  # Run: docker compose --profile fastdl up -d  (port FASTDL_HTTP_PORT, default 8080)
+  fastdl:
+    profiles:
+      - fastdl
+    build:
+      context: .
+      dockerfile: docker/fastdl/Dockerfile
+      args:
+        GAME_IMAGE: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+    image: ${FASTDL_IMAGE_NAME:-cs16-fastdl:latest}
+    container_name: cs16-fastdl0
+    restart: unless-stopped
+    platform: linux/amd64
+    ports:
+      - "${FASTDL_HTTP_PORT:-8080}:80/tcp"

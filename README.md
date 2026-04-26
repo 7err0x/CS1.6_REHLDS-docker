@@ -77,15 +77,27 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 | [`cstrike/config/gamemode-biohazard.cfg`](cstrike/config/gamemode-biohazard.cfg) | Boot **`+exec`**: **`mapcyclefile`** and **`mp_flashlight`**. |
 | [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg) | Mounted **as** **`config/server.cfg`** on **`cs16-biohazard`** — **`mp_forcerespawn 0`**, **`mapcycle.biohazard.txt`**, same VAC / comfort intent as the main **`server.cfg`**. |
 | [`cstrike/config/fastdl.cfg`](cstrike/config/fastdl.cfg) | Optional **HTTP FastDL**: uncomment **`sv_downloadurl`** so clients download maps / models / sounds over **HTTP** instead of the slow in-game channel (see **FastDL** below). |
+| [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | Builds **[`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile)** into **`FASTDL_IMAGE_NAME`** (default **`cs16-fastdl:latest`**): copies **`maps/`**, **`models/`**, **`sound/`**, etc. from **`CS16_IMAGE_NAME`** at **build** time. See **[`fastdl/README.txt`](fastdl/README.txt)**. |
+| [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + BuildKit **`RUN --mount`** from the game image’s **`/opt/steam/hlds/cstrike`** (no game binaries on HTTP — only client-downloadable trees). |
+| [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static files, **`gzip off`**, **`application/octet-stream`**. |
 | [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`nextmap`** / **`mapchooser`** commented; **`biohazard.amxx`** is **commented** until you add the file and uncomment. |
 
 ### FastDL (faster first-join downloads)
 
 Without **FastDL**, GoldSrc clients pull custom files from the server over the **game connection**, which is slow for **`zm_*` BSPs**, **`de_vegas.wad`**, and large mod packs (e.g. Biohazard **models/** / **sound/**).
 
-1. Host a static web tree whose paths match **`cstrike/`** on the server (e.g. **`maps/zm_inferno.bsp`**, **`models/...`**, **`sound/...`**). A **CDN** or VPS **nginx** “`alias`” to that tree works well; use **HTTPS** with a valid cert if possible.
-2. In **`cstrike/config/fastdl.cfg`**, uncomment **`sv_downloadurl`** and set the base URL with a **trailing slash** (example: **`https://dl.example.com/cs16/`** so **`maps/foo.bsp`** is fetched from **`https://dl.example.com/cs16/maps/foo.bsp`**).
-3. **`docker compose up -d --force-recreate`** (no image rebuild needed) so both services pick up the edited file (Compose mounts **`./cstrike/config`** read-only into the container).
+**Option A — FastDL image in this repo (Compose profile `fastdl`):**
+
+1. Build the **game** image, then **FastDL** (FastDL **copies** maps/models/sound/… from **`CS16_IMAGE_NAME`** into a small nginx image):  
+   **`docker compose build cs16 fastdl`**  
+   After you change baked maps, mods under **`image/zombiemod/extra-assets/`**, or **`Dockerfile`**, run **`build`** again for **both** so HTTP content matches the server.
+2. Start FastDL: **`docker compose --profile fastdl up -d`** ( **`FASTDL_HTTP_PORT`**, default **8080** ).
+3. In **`cstrike/config/fastdl.cfg`**, uncomment **`sv_downloadurl`** with a **trailing slash** (LAN example: **`http://192.168.1.10:8080/`**).
+4. Restart game containers if you only changed **`fastdl.cfg`**: **`docker compose restart cs16`** (and **`cs16-biohazard`** if used).
+
+**Option B — any other static host (CDN, VPS nginx, S3, …):** same path layout under the URL; set **`sv_downloadurl`** accordingly.
+
+**Reload config only:** edit **`fastdl.cfg`** then **`docker compose restart cs16`** (and **`cs16-biohazard`** if applicable); no image rebuild.
 
 **Optional speed-ups:** pre-compress large files as **`.bz2`** next to the originals (e.g. **`maps/foo.bsp.bz2`**); many clients will prefer the smaller download. Keep **`sv_allowdownload 1`** (already in **`fastdl.cfg`**) so the slow path still works as a fallback.
 
@@ -146,6 +158,9 @@ For a **ReAPI-native** rewrite (different install), see [ReBiohazard](https://gi
 |--------|--------|
 | Start (background) | `docker compose up -d` |
 | Start **Biohazard** profile too | `docker compose --profile biohazard up -d` |
+| Build FastDL from current game image | `docker compose build cs16 fastdl` |
+| Start **FastDL** (HTTP; maps/mods from game image) | `docker compose --profile fastdl up -d` |
+| Start game + Biohazard + FastDL | `docker compose --profile biohazard --profile fastdl up -d` |
 | Stop | `docker compose down` |
 | Restart | `docker compose restart` |
 | Logs (follow) | `docker compose logs -f` |
@@ -310,6 +325,7 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 ## Troubleshooting
 
 - **Cannot connect:** check `docker compose logs`, firewall, and that clients use the correct **UDP** port.
+- **Client: “A connection to the Steam VAC server could not be made” (often during long map/mod downloads):** This comes from the **Steam client** failing to reach **Valve’s** VAC/auth endpoints over the internet — it is **not** your game server refusing the download and usually **not** something you fix in Docker. Your server runs **`secure 0`** (VAC off on the server), but the **Steam** app may still try to talk to Valve in the background. Fix on the **player PC**: allow **Steam** through firewall/antivirus (including outbound **HTTPS**), avoid aggressive VPNs for testing, restart Steam, check [Steam’s connectivity FAQ](https://help.steampowered.com/en/faqs/view/6C09-ED6F-3A21-D2AB). **Shorten in-game downloads** with **FastDL** (`sv_downloadurl` in **`cstrike/config/fastdl.cfg`**) so the client spends less time in a heavy “downloading resources” state (see **FastDL** above).
 - **ARM Mac:** ensure Docker can run **linux/amd64** images; gameplay may be slower under emulation.
 - **Respawn has no effect:** confirm logs show ReGameDLL / game DLL loading; `mp_forcerespawn` is a **ReGameDLL** cvar — do not strip ReGameDLL from a custom image.
 - **`TEX_InitFromWad: couldn't open de_vegas.wad`:** Several community maps (including **`fy_iceworld`**) still reference Valve’s **`de_vegas.wad`** textures, but many minimal HLDS installs do not ship that file. The bake script now downloads **`de_vegas.wad`** into `cstrike/` during **`docker compose build`**. Rebuild with `docker compose build --no-cache` and start again. If the download mirror fails, copy **`de_vegas.wad`** from a full CS 1.6 install (Steam: `Half-Life/cstrike/de_vegas.wad`) onto the host and add a read-only bind mount in `docker-compose.yml`, for example: `- ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro`.
@@ -319,6 +335,7 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 - **`engine_i486.so: cannot enable executable stack … Invalid argument`:** Usually means the **HLDS** image was upgraded to **glibc 2.41+** while **`engine_i486.so`** still expects the older executable-stack behaviour. This project’s **Dockerfile** keeps **`apt`**/**`unrar`** only in the **`zm-maps`** stage and **`COPY --from`** the BSPs so the **ReHLDS** layer keeps the base **glibc**. **Rebuild** the image (`docker compose build --no-cache`). If you still hit this on the host, set **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** in the service **`environment`** (see [ReHLDS #1079](https://github.com/rehlds/ReHLDS/issues/1079)).
 - **`zm_*` / `zb_*` maps wrong BSP version / crash on load:** Many direct-download URLs return **HTML** instead of a GoldSrc map. This image bakes a curated list from **HL2GO** (RAR) with a BSP header check; if a build step fails, update **`image/zombiemod/hl2go-zm-urls.txt`** or drop known-good **`.bsp`** files into **`image/custom-maps/`**, align **`mapcycle.biohazard.txt`** basenames, and rebuild.
 - **Biohazard / infection errors or pink models:** Install the **full** pack assets into **`image/zombiemod/extra-assets/`** (not only **`biohazard.amxx`**) and rebuild.
+- **FastDL serves old maps / missing new mod files:** The **`fastdl`** image is a **snapshot** of **`CS16_IMAGE_NAME`** at **`docker compose build fastdl`** time. Rebuild both: **`docker compose build cs16 fastdl`**, then **`docker compose up -d --force-recreate`** (include **`--profile fastdl`** if you use FastDL). Requires **BuildKit** (default on current Docker) for **`docker/fastdl/Dockerfile`**.
 
 ---
 
