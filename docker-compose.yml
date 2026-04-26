@@ -1,5 +1,14 @@
+# Base image entrypoint ends with +map de_dust2; that map reloads after Metamod/AMXX init and overrides +map in command.
+# Drop the baked +map so the last +map in `command` wins (see blsalin/rehlds-cstrike image).
+x-hlds-entrypoint: &hlds_entrypoint
+  - "./hlds_run"
+  - "-timeout 3"
+  - "-pingboost 1"
+  - "-game cstrike"
+
 services:
   cs16:
+    entrypoint: *hlds_entrypoint
     build:
       context: .
       dockerfile: Dockerfile
@@ -34,3 +43,43 @@ services:
       - "on"
       - "+map"
       - "${START_MAP:-fy_iceworld}"
+
+  # Biohazard / old-school infection (dark zm_/zb_ maps + dedicated plugins.ini). Not started by default.
+  # Run: docker compose --profile biohazard up -d
+  # Add biohazard.amxx to image/zombiemod/extra-plugins/ then docker compose build (see README).
+  cs16-biohazard:
+    entrypoint: *hlds_entrypoint
+    profiles:
+      - biohazard
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        HLDS_BASE_IMAGE: ${HLDS_BASE_IMAGE:-ghcr.io/blsalin/rehlds-cstrike:edge}
+        AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
+    image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+    container_name: cs16-biohazard0
+    restart: unless-stopped
+    platform: linux/amd64
+    ports:
+      - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
+      - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
+    volumes:
+      - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
+      # Round-based infection tuning + mapcycle (replaces default respawn server.cfg for this container only).
+      - ./cstrike/config/server-biohazard.cfg:/opt/steam/hlds/cstrike/config/server.cfg:ro
+      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
+      - ./image/zombiemod/plugins-biohazard.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini:ro
+    command:
+      - "+exec"
+      - "config/gamemode-biohazard.cfg"
+      - "+maxplayers"
+      - "${MAX_PLAYERS:-16}"
+      - "+rcon_password"
+      - "${BIOHAZARD_RCON_PASSWORD:-changeme}"
+      - "+hostname"
+      - "${BIOHAZARD_SERVER_HOSTNAME:-CS16-Biohazard}"
+      - "+log"
+      - "on"
+      - "+map"
+      - "${BIOHAZARD_START_MAP:-cs_estate}"
