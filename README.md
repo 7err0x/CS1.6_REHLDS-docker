@@ -76,7 +76,18 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 | [`image/mapcycle.biohazard.txt`](image/mapcycle.biohazard.txt) | **Biohazard** profile: popular **dark `zm_*`** maps baked from HL2GO, then dark **stock** maps (**`cs_estate`**, **`cs_militia`**, **`de_train`**) and small **fy_** / **aim** arenas. |
 | [`cstrike/config/gamemode-biohazard.cfg`](cstrike/config/gamemode-biohazard.cfg) | Boot **`+exec`**: **`mapcyclefile`** and **`mp_flashlight`**. |
 | [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg) | Mounted **as** **`config/server.cfg`** on **`cs16-biohazard`** — **`mp_forcerespawn 0`**, **`mapcycle.biohazard.txt`**, same VAC / comfort intent as the main **`server.cfg`**. |
+| [`cstrike/config/fastdl.cfg`](cstrike/config/fastdl.cfg) | Optional **HTTP FastDL**: uncomment **`sv_downloadurl`** so clients download maps / models / sounds over **HTTP** instead of the slow in-game channel (see **FastDL** below). |
 | [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`nextmap`** / **`mapchooser`** commented; **`biohazard.amxx`** is **commented** until you add the file and uncomment. |
+
+### FastDL (faster first-join downloads)
+
+Without **FastDL**, GoldSrc clients pull custom files from the server over the **game connection**, which is slow for **`zm_*` BSPs**, **`de_vegas.wad`**, and large mod packs (e.g. Biohazard **models/** / **sound/**).
+
+1. Host a static web tree whose paths match **`cstrike/`** on the server (e.g. **`maps/zm_inferno.bsp`**, **`models/...`**, **`sound/...`**). A **CDN** or VPS **nginx** “`alias`” to that tree works well; use **HTTPS** with a valid cert if possible.
+2. In **`cstrike/config/fastdl.cfg`**, uncomment **`sv_downloadurl`** and set the base URL with a **trailing slash** (example: **`https://dl.example.com/cs16/`** so **`maps/foo.bsp`** is fetched from **`https://dl.example.com/cs16/maps/foo.bsp`**).
+3. **`docker compose up -d --force-recreate`** (no image rebuild needed) so both services pick up the edited file (Compose mounts **`./cstrike/config`** read-only into the container).
+
+**Optional speed-ups:** pre-compress large files as **`.bz2`** next to the originals (e.g. **`maps/foo.bsp.bz2`**); many clients will prefer the smaller download. Keep **`sv_allowdownload 1`** (already in **`fastdl.cfg`**) so the slow path still works as a fallback.
 
 **Rebuild** after changing the mapcycle, **`hl2go-zm-urls.txt`**, the bake scripts, or files under `image/custom-maps/`:
 
