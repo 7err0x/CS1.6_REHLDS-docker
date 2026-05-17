@@ -47,6 +47,7 @@ RUN curl -fsSL "https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity/archive/
         include/ \
     && rm -rf "${srcdir}" \
     && sed -i 's|^// #define BIOHAZARD_SUPPORT|#define BIOHAZARD_SUPPORT|' lasermine.sma \
+    && { grep -q 'register_clcmd("+dellaser"' lasermine.sma || perl -0777 -i -pe 's/(\tregister_clcmd\("say",\s*"lm_say_lasermine"\);\n)/\tregister_clcmd("+dellaser", \t"lm_progress_remove");\n\tregister_clcmd("-dellaser", \t"lm_progress_stop");\n\n$1/sm' lasermine.sma; } \
     && perl -0777 -i \
         -pe 's/stock bool:check_plugin\(\)\s*\{(?:.|\n)*?\n}/stock bool:check_plugin()\n{\n\t\/\/ ReUnion sets reu_version; upstream mistakenly treats this as non-Steam and runs amxx pause lasermine.\n\treturn false;\n}/s' \
         include/lasermine_util.inc \
