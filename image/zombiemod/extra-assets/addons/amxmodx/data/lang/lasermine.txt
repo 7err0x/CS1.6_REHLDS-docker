@@ -1,5 +1,5 @@
 [en]
-REFER         = ^4%s ^1To refer to a lasermine rule in this server, say 'lasermine'.
+REFER         = ^4%s ^1Humans: buy extra mines in the buy zone — say /lm, /buy lasermine, /lasermine, or use console buy_lasermine (see README for price). Deploy: bind a key to +setlaser or +setlm. You start with 2 mines per round if the server uses default bh_ltm_*.
 BOUGHT        = ^4%s ^1You have successfully bought a lasermine.
 NO_MONEY      = ^4%s ^1You don't have enough money to buy a lasermine! ^3($%i needed.)
 NOT_ACCESS    = ^4%s ^3You can't access to this command.

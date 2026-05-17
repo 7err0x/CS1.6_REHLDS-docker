@@ -31,6 +31,7 @@
 
 #include <amxmodx>
 #include <amxmisc>
+#include <cstrike>
 #include <fakemeta>
 #include <hamsandwich>
 #include <xs>
@@ -46,7 +47,6 @@
 #define OFFSET_DEATH 444
 #define OFFSET_TEAM 114
 #define OFFSET_ARMOR 112
-#define OFFSET_NVG 129
 #define OFFSET_CSMONEY 115
 #define OFFSET_PRIMARYWEAPON 116
 #define OFFSET_WEAPONTYPE 43
@@ -84,12 +84,14 @@
 #define EQUIP_GREN (1<<2)
 #define EQUIP_ALL (1<<0 | 1<<1 | 1<<2)
 
-#define HAS_NVG (1<<0)
 #define ATTRIB_BOMB (1<<1)
 #define DMG_HEGRENADE (1<<24)
 
 #define MODEL_CLASSNAME "player_model"
 #define IMPULSE_FLASHLIGHT 100
+
+new const BIO_SND_NVG_ON[] = "items/nvg_on.wav"
+new const BIO_SND_NVG_OFF[] = "items/nvg_off.wav"
 
 #define MAX_SPAWNS 128
 #define MAX_CLASSES 10
@@ -275,7 +277,7 @@ new const g_teaminfo[][] =
 new g_maxplayers, g_spawncount, g_buyzone, g_botclient_pdata, g_sync_hpdisplay, 
     g_sync_msgdisplay, g_fwd_spawn, g_fwd_result, g_fwd_infect, g_fwd_gamestart, 
     g_msg_flashlight, g_msg_teaminfo, g_msg_scoreattrib, g_msg_money, g_msg_scoreinfo, 
-    g_msg_deathmsg , g_msg_screenfade, Float:g_buytime,  Float:g_spawns[MAX_SPAWNS+1][9],
+    g_msg_deathmsg , g_msg_screenfade, g_msg_nvgtoggle, Float:g_buytime,  Float:g_spawns[MAX_SPAWNS+1][9],
     Float:g_vecvel[3], bool:g_brestorevel, bool:g_infecting, bool:g_gamestarted,
     bool:g_roundstarted, bool:g_roundended, bool:g_czero, g_class_name[MAX_CLASSES+1][32], 
     g_classcount, g_class_desc[MAX_CLASSES+1][32], g_class_pmodel[MAX_CLASSES+1][64], 
@@ -294,6 +296,8 @@ new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_block
     bool:g_showmenu[33], bool:g_menufailsafe[33], bool:g_preinfect[33], bool:g_welcomemsg[33], 
     bool:g_suicide[33], Float:g_regendelay[33], Float:g_hitdelay[33], g_mutate[33], g_victim[33], 
     g_modelent[33], g_menuposition[33], g_player_class[33], g_player_weapons[33][2]
+new bool:g_bio_nv_client_on[33]
+new Float:g_bio_nv_next_cmd[33]
 
 public plugin_precache()
 {
@@ -374,6 +378,9 @@ public plugin_precache()
 	
 	for(i = 0; i < sizeof g_zombie_die_sounds; i++)
 		precache_sound(g_zombie_die_sounds[i])
+
+	precache_sound(BIO_SND_NVG_ON)
+	precache_sound(BIO_SND_NVG_OFF)
 	
 	for(i = 0; i < sizeof g_zombie_win_sounds; i++) 
 		precache_sound(g_zombie_win_sounds[i])
@@ -418,6 +425,7 @@ public plugin_init()
 	register_clcmd("say /class", "cmd_classmenu")
 	register_clcmd("say /guns", "cmd_enablemenu")
 	register_clcmd("say /help", "cmd_helpmotd")
+	register_clcmd("nightvision", "bio_clcmd_nightvision")
 	register_clcmd("amx_infect", "cmd_infectuser", ADMIN_BAN, "<name or #userid>")
 	
 	register_menu("Equipment", 1023, "action_equip")
@@ -438,6 +446,7 @@ public plugin_init()
 
 	RegisterHam(Ham_TakeDamage, "player", "bacon_takedamage_player")
 	RegisterHam(Ham_Killed, "player", "bacon_killed_player")
+	RegisterHam(Ham_Killed, "player", "bio_nv_on_death_post", 1)
 	RegisterHam(Ham_Spawn, "player", "bacon_spawn_player_post", 1)
 	RegisterHam(Ham_TraceAttack, "player", "bacon_traceattack_player")
 	RegisterHam(Ham_TraceAttack, "func_pushable", "bacon_traceattack_pushable")
@@ -480,6 +489,7 @@ public plugin_init()
 	g_msg_deathmsg = get_user_msgid("DeathMsg")
 	g_msg_money = get_user_msgid("Money")
 	g_msg_screenfade = get_user_msgid("ScreenFade")
+	g_msg_nvgtoggle = get_user_msgid("NVGToggle")
 	
 	g_fwd_infect = CreateMultiForward("event_infect", ET_IGNORE, FP_CELL, FP_CELL)
 	g_fwd_gamestart = CreateMultiForward("event_gamestart", ET_IGNORE)
@@ -557,6 +567,9 @@ public client_connect(id)
 	g_player_weapons[id][1] = -1
 	g_regendelay[id] = 0.0
 	g_hitdelay[id] = 0.0
+
+	g_bio_nv_client_on[id] = false
+	g_bio_nv_next_cmd[id] = 0.0
 
 	remove_user_model(g_modelent[id])
 }
@@ -1118,9 +1131,9 @@ public fwd_player_postthink(id)
 
 public fwd_emitsound(id, channel, sample[], Float:volume, Float:attn, flag, pitch)
 {	
-	if(channel == CHAN_ITEM && sample[6] == 'n' && sample[7] == 'v' && sample[8] == 'g')
-		return FMRES_SUPERCEDE	
-	
+	// Do not supersede items/nvg_* here: blocking those CHAN_ITEM emits breaks the client
+	// NVG toggle (including turning nightvision off as zombie) on many builds.
+
 	if(!is_user_connected(id) || !g_zombie[id])
 		return FMRES_IGNORED	
 
@@ -1153,16 +1166,61 @@ public fwd_cmdstart(id, handle, seed)
 {
 	if(!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
-	
-	static impulse
-	impulse = get_uc(handle, UC_Impulse)
-	
-	if(impulse == IMPULSE_FLASHLIGHT)
-	{
-		set_uc(handle, UC_Impulse, 0)
-		return FMRES_SUPERCEDE
-	}
+
+	// Do not strip impulse 100 here: on ReGameDLL it is flashlight; zombies may still rely on
+	// it for custom plugins. Leave usercmd impulses unchanged.
 	return FMRES_IGNORED
+}
+
+public bio_clcmd_nightvision(id)
+{
+	if(!g_msg_nvgtoggle)
+		return PLUGIN_CONTINUE
+
+	if(id < 1 || id > g_maxplayers || !is_user_alive(id) || !g_zombie[id])
+		return PLUGIN_CONTINUE
+
+	static Float:deadline
+	deadline = get_gametime()
+
+	if(g_bio_nv_next_cmd[id] > deadline)
+		return PLUGIN_HANDLED
+
+	g_bio_nv_next_cmd[id] = deadline + 0.31
+
+	static bool:on
+	on = !g_bio_nv_client_on[id]
+
+	if(on)
+		emit_sound(id, CHAN_ITEM, BIO_SND_NVG_ON, 0.96, ATTN_NORM, 0, PITCH_NORM)
+	else
+		emit_sound(id, CHAN_ITEM, BIO_SND_NVG_OFF, 0.96, ATTN_NORM, 0, PITCH_NORM)
+
+	message_begin(MSG_ONE, g_msg_nvgtoggle, _, id)
+	write_byte(on ? 1 : 0)
+	message_end()
+
+	g_bio_nv_client_on[id] = on
+
+	return PLUGIN_HANDLED
+}
+
+public bio_nv_on_death_post(victim, killer, shouldgib)
+{
+	if(!g_msg_nvgtoggle)
+		return
+
+	if(victim < 1 || victim > g_maxplayers || !is_user_connected(victim))
+		return
+
+	if(!g_bio_nv_client_on[victim])
+		return
+
+	message_begin(MSG_ONE, g_msg_nvgtoggle, _, victim)
+	write_byte(0)
+	message_end()
+
+	g_bio_nv_client_on[victim] = false
 }
 
 public fwd_spawn(ent)
@@ -1903,6 +1961,17 @@ public cure_user(id)
 	g_zombie[id] = false
 	g_falling[id] = false
 
+	if(g_bio_nv_client_on[id] && g_msg_nvgtoggle && is_user_connected(id))
+	{
+		emit_sound(id, CHAN_ITEM, BIO_SND_NVG_OFF, 0.96, ATTN_NORM, 0, PITCH_NORM)
+
+		message_begin(MSG_ONE, g_msg_nvgtoggle, _, id)
+		write_byte(0)
+		message_end()
+
+		g_bio_nv_client_on[id] = false
+	}
+
 	reset_user_model(id)
 	fm_set_user_nvg(id, 0)
 	set_pev(id, pev_gravity, 1.0)
@@ -2461,10 +2530,10 @@ stock fm_set_user_bpammo(index, weapon, amount)
 
 stock fm_set_user_nvg(index, onoff = 1)
 {
-	static nvg
-	nvg = get_pdata_int(index, OFFSET_NVG)
-	
-	set_pdata_int(index, OFFSET_NVG, onoff == 1 ? nvg | HAS_NVG : nvg & ~HAS_NVG)
+	// Old pdata bit twiddle (OFFSET_HAS_NVG) does not update m_bHasNightVision on
+	// ReGameDLL / current CS DLLs, so the "nightvision" client command exits early
+	// and goggles cannot toggle. Use the CS module natives instead.
+	cs_set_user_nvg(index, onoff ? 1 : 0)
 	return 1
 }
 
@@ -2542,6 +2611,9 @@ stock set_zombie_attibutes(index)
 	set_pev(index, pev_renderamt, 0.0)
 	set_pev(index, pev_rendermode, kRenderTransTexture)
 	
+	g_bio_nv_client_on[index] = false
+	g_bio_nv_next_cmd[index] = 0.0
+
 	fm_set_user_armortype(index, CS_ARMOR_NONE)
 	fm_set_user_nvg(index)
 	

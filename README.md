@@ -80,8 +80,20 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 | [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | Builds **[`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile)** into **`FASTDL_IMAGE_NAME`** (default **`cs16-fastdl:latest`**): copies **`maps/`**, **`models/`**, **`sound/`**, etc. from **`CS16_IMAGE_NAME`** at **build** time. See **[`fastdl/README.txt`](fastdl/README.txt)**. |
 | [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + BuildKit **`RUN --mount`** from the game image’s **`/opt/steam/hlds/cstrike`** (no game binaries on HTTP — only client-downloadable trees). |
 | [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static files, **`gzip off`**, **`application/octet-stream`**. |
-| [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`nextmap`** / **`mapchooser`** commented; **`biohazard.amxx`** is **commented** until you add the file and uncomment. |
+| [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`biohazard.amxx`**, **LaserTripmine** (`lasermine.amxx`), **`nextmap`** / **`mapchooser`** commented. |
 
+### Lasermines (Biohazard humans)
+
+The image includes **[Amxx Laser TripMine Entity](https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity)** compiled with **Biohazard** support. Defaults (see **`addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg`** in the baked pack):
+
+- **2 mines** at the start of each round (`bh_ltm_amount`), up to **6** carried (`bh_ltm_max_amount`); buy more while inside the **buy zone** with enough **cash**.
+- **Buy** (survivors / humans only on this server): console **`buy_lasermine`**, or chat **`/lm`**, **`/buy lasermine`**, or **`say /lasermine`** (opens help). Price and buy-zone rules: **`bh_ltm_buy_price`**, **`bh_ltm_buy_zone`**, **`bh_ltm_buy_mode`** in the same file.
+- **Place**: bind a key to **`+setlaser`** or **`+setlm`** (release to finish). Retrieve with **USE** after v3.15 (upstream README).
+- A **scrolling chat reminder** is set in **`cstrike/config/server-biohazard.cfg`** (`amx_scrollmsg`). In-game **`say lasermine`** uses **`addons/amxmodx/data/lang/lasermine.txt`** (`REFER` line).
+
+### Zombie night vision
+
+Classic Biohazard set a **private HUD “has NVG” bit** (`pdata`/offset hacks). Current **HLDS/ReGameDLL** only honors night vision when **`m_bHasNightVision`** is set on the CS player (`ClientCommand nightvision` **returns immediately** otherwise), so goggles never toggle reliably. This repo **`fm_set_user_nvg`** delegates to **`cs_set_user_nvg`** from **`#include <cstrike>`** so infection/cure stays in sync with the game DLL; **alive zombies** additionally have **`nightvision`** handled in **`biohazard.sma`**, sending **`NVGToggle`** (**`get_user_msgid("NVGToggle")`**) plus **`items/nvg_on.wav` / `nvg_off.wav`**, bypassing flaky native command handling. Earlier tweaks remain: **`FM_CmdStart`** no longer strips impulse **100**, **`fwd_emitsound`** no longer supersede **`items/nvg_*.wav`**, and **`customflashlight`** leaves impulse **100** alone for zombies. Bind **`nightvision`** (often default **N**). **`bh_autonvg`** runs **`nightvision`** once after infect if enabled.
 ### FastDL (faster first-join downloads)
 
 Without **FastDL**, GoldSrc clients pull custom files from the server over the **game connection**, which is slow for **`zm_*` BSPs**, **`de_vegas.wad`**, and large mod packs (e.g. Biohazard **models/** / **sound/**).
@@ -114,26 +126,47 @@ If the mirror is down, point the build at another HTTP **FastDL**-style tree tha
 
 ## Biohazard / old-school infection (optional profile)
 
-This is a **second Compose service** on a **different host port** (default **27017**), tuned for **popular dark `zm_*` community maps** (HL2GO, baked at image build), **dark indoor stock maps**, and the same small **fy_** / **aim** arenas as the main image. **Classic Biohazard infection** only runs after you enable **`biohazard.amxx`** (see below). Until then it is normal round-based CS with that map list and **`mp_forcerespawn 0`**.
+This is a **second Compose service** on a **different host port** (default **27017**), tuned for **popular dark `zm_*` community maps** (HL2GO, baked at image build), **dark indoor stock maps**, and the same small **fy_** / **aim** arenas as the main image. **Classic Biohazard infection** uses the baked **`biohazard.amxx`** from **`image/zombiemod/extra-plugins/`**. Without the optional model/sound pack merged into **`extra-assets/`**, behaviour may be limited until those assets are added.
 
-### 1. Add the Biohazard AMXX plugin (required for real zombie behaviour)
+### 1. Biohazard AMXX plugin (included)
 
-This repository **does not redistribute** the Biohazard pack (models, sounds, compiled plugin). Obtain **`biohazard.amxx`** (and usually the rest of the **Biohazard v2.00 Beta 3b** pack: models, sounds, configs) from the official thread:
+The image **bakes a compiled `biohazard.amxx`** from **`image/zombiemod/extra-plugins/`** (patched in-tree **`biohazard.sma`** under **`image/zombiemod/extra-assets/.../scripting/`** for NVG / compatibility; see **§2 below** to rebuild after editing the source). For the **full Biohazard public pack** (models, sounds, **zombie classes**, etc.), obtain **Biohazard v2.00 Beta 3b** from the official thread and merge assets into **`image/zombiemod/extra-assets/`** (see **`image/zombiemod/extra-assets/README.txt`**).
 
 - [Biohazard v2.00 Beta 3b (Zombie Mod) — AlliedModders](https://forums.alliedmods.net/showthread.php?t=68523)
 
-**Quick path for Docker:**
+**Quick path for Docker (assets only if you do not have the pack yet):**
 
-1. Extract the pack on your PC and locate **`biohazard.amxx`** (under **`addons/amxmodx/plugins/`** in the pack).
-2. Copy **`biohazard.amxx`** into **`image/zombiemod/extra-plugins/`** in this project (see **`image/zombiemod/extra-plugins/README.txt`**).
-3. Merge the rest of the pack ( **`models/`**, **`sound/`**, **`sprites/`**, extra **`addons/`** files, etc.) into **`image/zombiemod/extra-assets/`** so its **top-level folders** match **`cstrike/`** (see **`image/zombiemod/extra-assets/README.txt`**). At build time they are copied into the image **`cstrike/`** tree.
-4. In **`image/zombiemod/plugins-biohazard.ini`**, uncomment the **`biohazard.amxx`** line (Compose mounts this file as **`plugins.ini`** for the Biohazard service).
+1. Extract the pack on your PC and merge **`models/`**, **`sound/`**, **`sprites/`**, extra **`addons/amxmodx/`** files you need into **`image/zombiemod/extra-assets/`** so its top-level folders match **`cstrike/`**.
+2. Rebuild: **`docker compose build`** and **`docker compose --profile biohazard up -d --force-recreate`**.
 
-5. Rebuild: **`docker compose build --no-cache`** and **`docker compose --profile biohazard up -d --force-recreate`**.
+**Replacing the main plugin:** drop your own **`biohazard.amxx`** into **`image/zombiemod/extra-plugins/`** if you use an unmodified vendor binary (you would lose the in-repo NVG tweak unless you apply the same patch).
 
-Until **`biohazard.amxx`** is present and uncommented, the Biohazard container runs as **normal round-based CS** on the dark / small-map rotation.
+### 2. Compiling `biohazard.sma` locally
 
-### 2. Start the Biohazard server
+The canonical sources in this repo are **`image/zombiemod/extra-assets/addons/amxmodx/scripting/biohazard.sma`** and **`…/scripting/biohazard.cfg`** (included via **`#tryinclude "biohazard.cfg"`** — the **`.cfg`** must sit next to the **`.sma`** when you compile). Use **AMX Mod X 1.9.x** to match the server image (see **`AMXX_BASE_URL` / `AMXX_CSTRIKE_URL`** in **`.env.example`** and the Dockerfile — same Counter-Strike add-on tarball the runtime needs for **`cstrike` / `csx` includes).
+
+**On Linux (recommended layout):**
+
+1. Download and extract **both** tarballs into one tree (paths match the official packages):
+   - **Base:** [amxmodx-1.9.0-git5303-base-linux.tar.gz](https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz) (contains **`addons/amxmodx/scripting/amxxpc`** and includes).
+   - **CS add-on:** [amxmodx-1.9.0-git5303-cstrike-linux.tar.gz](https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz) (merge into the same **`cstrike/`** root so **`addons/amxmodx/modules/`** and includes are complete).
+
+2. **`amxxpc`** is a **32-bit** binary. On **64-bit Debian/Ubuntu** install multilib support, for example: **`sudo dpkg --add-architecture i386`**, then **`sudo apt-get install libc6-i386 zlib1g:i386 libstdc++6:i386`** (same idea as the **`lasermine-biohazard-compile`** stage in the Dockerfile).
+
+3. Copy **`biohazard.sma`** and **`biohazard.cfg`** into **`addons/amxmodx/scripting/`**. Copy **`image/zombiemod/extra-assets/addons/amxmodx/data/lang/biohazard.txt`** to **`addons/amxmodx/data/lang/biohazard.txt`** so the compiler can resolve the language file if needed.
+
+4. From **`addons/amxmodx/scripting/`**:
+
+   ```bash
+   chmod +x amxxpc
+   ./amxxpc biohazard.sma
+   ```
+
+5. The output is **`biohazard.amxx`** in that directory. Copy it to **`image/zombiemod/extra-plugins/biohazard.amxx`**, then rebuild the game image (**`docker compose build`**) so the new binary is baked into **`addons/amxmodx/plugins/`**.
+
+**On Windows:** use the **Windows** AMXX base package from the same release, open **`compile.exe`** or run **`amxxpc.exe`** from the scripting folder with **`biohazard.sma`** and the same **`biohazard.cfg`** / **`data/lang/biohazard.txt`** layout under your local AMXX tree.
+
+### 3. Start the Biohazard server
 
 ```bash
 docker compose build --pull
@@ -146,7 +179,7 @@ docker compose --profile biohazard up -d
 
 The profile mounts **`image/zombiemod/plugins-biohazard.ini`** as **`plugins.ini`**, **`server-biohazard.cfg`** as **`server.cfg`**, and **`docker-compose.yml`** sets a custom **`entrypoint`** (same **`hlds_run`** flags as upstream **without** **`+map de_dust2`**) so your **`+map`** in **`command`** is not overridden after Metamod/AMXX init.
 
-### 3. Other zombie / ReAPI stacks (not in this image)
+### 4. Other zombie / ReAPI stacks (not in this image)
 
 For a **ReAPI-native** rewrite (different install), see [ReBiohazard](https://github.com/nikolaygaus/ReBiohazard) — it targets **ReHLDS + ReGameDLL + ReAPI** and is **not** the same drop-in as classic Biohazard.
 

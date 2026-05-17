@@ -1,4 +1,4 @@
-/*	Copyright © 2008, ConnorMcLeod
+/*	Copyright ù 2008, ConnorMcLeod
 
 	Custom Flashlight is free software;
 	you can redistribute it and/or modify it under the terms of the
@@ -199,6 +199,10 @@ public CmdStart(id, uc_handle, seed)
 
 	if(get_uc(uc_handle, UC_Impulse) == 100)
 	{
+		// Impulse 100 is the flashlight impulse on ReGameDLL; NVG uses the nightvision cmd.
+		if(is_user_zombie(id))
+			return FMRES_IGNORED
+
 		if(is_user_alive(id))
 		{
 			if( g_bFlashLight[id] )
