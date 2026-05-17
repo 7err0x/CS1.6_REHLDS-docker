@@ -71,6 +71,7 @@ services:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
     volumes:
+      - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
       # Round-based infection tuning + mapcycle (replaces default respawn server.cfg for this container only).
       - ./cstrike/config/server-biohazard.cfg:/opt/steam/hlds/cstrike/config/server.cfg:ro

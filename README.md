@@ -88,7 +88,8 @@ The image includes **[Amxx Laser TripMine Entity](https://github.com/AoiKagase/A
 
 - **2 mines** at the start of each round (`bh_ltm_amount`), up to **6** carried (`bh_ltm_max_amount`); buy more while inside the **buy zone** with enough **cash**.
 - **Buy** (survivors / humans only on this server): console **`buy_lasermine`**, or chat **`/lm`**, **`/buy lasermine`**, or **`say /lasermine`** (opens help). Price and buy-zone rules: **`bh_ltm_buy_price`**, **`bh_ltm_buy_zone`**, **`bh_ltm_buy_mode`** in the same file.
-- **Place**: bind a key to **`+setlaser`** or **`+setlm`** (release to finish). Retrieve with **USE** after v3.15 (upstream README).
+- **Place**: bind a key to **`+setlaser`** or **`+setlm`** (release to finish).
+- **Pick up / remove your mine**: aim within ~128 units and hold **USE** (default **E**), or bind **`+dellaser`** / **`-dellaser`** (same hold/release pattern as **`+setlaser`** — use **`bind KEY +dellaser`**, not `bind KEY dellaser`). Upstream sources only hooked USE; this image also registers **`+dellaser`** so the in-plugin help matches behavior.
 - A **scrolling chat reminder** is set in **`cstrike/config/server-biohazard.cfg`** (`amx_scrollmsg`). In-game **`say lasermine`** uses **`addons/amxmodx/data/lang/lasermine.txt`** (`REFER` line).
 
 ### Zombie night vision
