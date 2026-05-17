@@ -932,7 +932,7 @@ public event_curweapon(id)
 		case 2: maxammo = g_weapon_ammo[weapon][MAX_CLIP]
 	}
 
-	if(!maxammo)
+	if(maxammo <= 0)
 		return PLUGIN_CONTINUE
 	
 	switch(ammotype)
@@ -947,8 +947,19 @@ public event_curweapon(id)
 		}
 		case 2:
 		{
-			static clip; clip = read_data(3)
-			if(clip < 1)
+			static maxbp
+			maxbp = g_weapon_ammo[weapon][MAX_AMMO]
+
+			if(maxbp > 0)
+			{
+				static ammo_reserve
+				ammo_reserve = fm_get_user_bpammo(id, weapon)
+				if(ammo_reserve < 1)
+					fm_set_user_bpammo(id, weapon, maxbp)
+			}
+			static clip
+			clip = read_data(3)
+			if(clip < maxammo)
 			{
 				static weaponname[32]
 				get_weaponname(weapon, weaponname, 31)
@@ -956,7 +967,8 @@ public event_curweapon(id)
 				static ent 
 				ent = fm_find_ent_by_owner(-1, weaponname, id)
 				
-				fm_set_weapon_ammo(ent, maxammo)
+				if(pev_valid(ent))
+					fm_set_weapon_ammo(ent, maxammo)
 			}
 		}
 	}	

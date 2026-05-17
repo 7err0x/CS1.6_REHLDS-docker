@@ -94,6 +94,17 @@ The image includes **[Amxx Laser TripMine Entity](https://github.com/AoiKagase/A
 ### Zombie night vision
 
 Classic Biohazard set a **private HUD “has NVG” bit** (`pdata`/offset hacks). Current **HLDS/ReGameDLL** only honors night vision when **`m_bHasNightVision`** is set on the CS player (`ClientCommand nightvision` **returns immediately** otherwise), so goggles never toggle reliably. This repo **`fm_set_user_nvg`** delegates to **`cs_set_user_nvg`** from **`#include <cstrike>`** so infection/cure stays in sync with the game DLL; **alive zombies** additionally have **`nightvision`** handled in **`biohazard.sma`**, sending **`NVGToggle`** (**`get_user_msgid("NVGToggle")`**) plus **`items/nvg_on.wav` / `nvg_off.wav`**, bypassing flaky native command handling. Earlier tweaks remain: **`FM_CmdStart`** no longer strips impulse **100**, **`fwd_emitsound`** no longer supersede **`items/nvg_*.wav`**, and **`customflashlight`** leaves impulse **100** alone for zombies. Bind **`nightvision`** (often default **N**). **`bh_autonvg`** runs **`nightvision`** once after infect if enabled.
+
+### Survivor ammo (`bh_ammo`)
+
+**`addons/amxmodx/configs/bh_cvars.cfg`** sets **`bh_ammo`** for **humans only** — Biohazard skips this logic while **`g_zombie`** is true. **`1`** tops up reserve when it hits empty; **`2`** keeps the current magazine topped up whenever **`CurWeapon`** updates and refills reserve, which behaves like infinite ammo during combat. Change **`biohazard.sma`** (**`bh_ammo`** handler in **`event_curweapon`**) and rebuild **`biohazard.amxx`** (Biohazard **§2**) if you need further tweaks beyond the **`bh_cvars.cfg`** knobs.
+
+### Frost / napalm grenades (Zombie Plague–style)
+
+There is **no frost / fire grenade plugin bundled here** — public implementations rely on **[Zombie Plague](https://forums.alliedmods.net/showthread.php?t=72505)** natives. Good **open-reference sources** under compatible licenses for study or porting: **[MultiModServer / zp50 scripting](https://github.com/evandrocoan/MultiModServer/tree/master/plugins/addons/amxmodx/scripting)** — **`[zp50_grenade_frost.sma](https://github.com/evandrocoan/MultiModServer/blob/master/plugins/addons/amxmodx/scripting/zp50_grenade_frost.sma)`** (frost cone / radius freeze, blue sprites) and **`[zp50_grenade_fire.sma](https://github.com/evandrocoan/MultiModServer/blob/master/plugins/addons/amxmodx/scripting/zp50_grenade_fire.sma)`** (burn-over-time napalm HE). Swap **`zp_*`** checks for Biohazard **`is_user_zombie()`** / **`g_zombie[]`** equivalents and wire explosions to grenade ents (smoke ↔ frost, HE ↔ fire) plus optional models/sounds and FastDL. Historical Bio addons are also discussed around the **[Biohazard AlliedModders thread](https://forums.alliedmods.net/showthread.php?t=68523)**.
+
+**Blue light only (no freeze):** this repo’s **`bio_smokeflare`** turns smoke into a glowing blue flare (**`bio_smokeflare.amxx`** in **`image/zombiemod/extra-plugins/`**). Append **`bio_smokeflare.amxx`** to **`plugins-biohazard.ini`** after **`biohazard.amxx`** — see cvars **`bh_flare_enable`** and **`bh_flare_duration`** in **`bio_smokeflare.sma`**.
+
 ### FastDL (faster first-join downloads)
 
 Without **FastDL**, GoldSrc clients pull custom files from the server over the **game connection**, which is slow for **`zm_*` BSPs**, **`de_vegas.wad`**, and large mod packs (e.g. Biohazard **models/** / **sound/**).
