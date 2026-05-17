@@ -7,6 +7,11 @@ Recommended from the Biohazard pack (reduces AMXX warnings):
 - addons/amxmodx/data/lang/biohazard.txt
 - addons/amxmodx/configs/biohazard.cfg (or whatever configs the pack documents)
 
+LaserMine (Biohazard build baked in Dockerfile) reads:
+- addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg
+- addons/amxmodx/configs/plugins/lasermine/resources.json
+- addons/amxmodx/data/lang/lasermine.txt
+
 Then: docker compose build
 
 If this directory only contains README / .gitkeep, the merge step is skipped.

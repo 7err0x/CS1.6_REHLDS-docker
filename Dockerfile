@@ -18,6 +18,42 @@ RUN mkdir -p /zm-maps-out \
     && /tmp/bake-zombie-night-maps.sh \
     && rm -f /tmp/bake-zombie-night-maps.sh /tmp/hl2go-zm-urls.txt
 
+# Compile Lasermine for Biohazard (public source, pinned commit) with the same AMXX kit as runtime.
+FROM debian:bookworm-slim AS lasermine-biohazard-compile
+RUN dpkg --add-architecture i386 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl perl libc6-i386 zlib1g:i386 libstdc++6:i386 \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG LASERMINE_GIT_SHA=7e7a285254ba699a1fcfbb43a7378bfc63acb309
+ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz
+ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz
+
+WORKDIR /amxx-kit
+RUN curl -fsSL "${AMXX_BASE_URL}" | tar -xzf - \
+    && curl -fsSL "${AMXX_CSTRIKE_URL}" | tar -xzf -
+
+COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/include/biohazard.inc /amxx-kit/addons/amxmodx/scripting/include/biohazard.inc
+
+WORKDIR /amxx-kit/addons/amxmodx/scripting
+RUN curl -fsSL "https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity/archive/${LASERMINE_GIT_SHA}.tar.gz" | tar -xzf - \
+    && srcdir="Amxx-Laser-TripMine-Entity-${LASERMINE_GIT_SHA}" \
+    && cp "${srcdir}/cstrike/addons/amxmodx/scripting/lasermine.sma" . \
+    && cp "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine_zombie.inc" \
+        "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine_util.inc" \
+        "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine_const.inc" \
+        "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine.inc" \
+        "${srcdir}/cstrike/addons/amxmodx/scripting/include/beams.inc" \
+        include/ \
+    && rm -rf "${srcdir}" \
+    && sed -i 's|^// #define BIOHAZARD_SUPPORT|#define BIOHAZARD_SUPPORT|' lasermine.sma \
+    && perl -0777 -i \
+        -pe 's/stock bool:check_plugin\(\)\s*\{(?:.|\n)*?\n}/stock bool:check_plugin()\n{\n\t\/\/ ReUnion sets reu_version; upstream mistakenly treats this as non-Steam and runs amxx pause lasermine.\n\treturn false;\n}/s' \
+        include/lasermine_util.inc \
+    && chmod +x amxxpc \
+    && ./amxxpc lasermine.sma \
+    && test -f lasermine.amxx
+
 FROM ${HLDS_BASE_IMAGE}
 
 USER root
@@ -47,12 +83,23 @@ RUN chown steam:steam /opt/steam/hlds/cstrike/mapcycle.txt \
     && find /opt/steam/hlds/cstrike -maxdepth 1 -name 'de_vegas.wad' -user root -exec chown steam:steam {} \;
 
 # Replace base image AMXX 1.8.2 with 1.9.x (stable on ReHLDS / ReGameDLL; 1.8.x segfaults after map load here).
-# Override at build time (see docker-compose `AMXX_BASE_URL`).
+# Override at build time (see docker-compose `AMXX_BASE_URL` / `AMXX_CSTRIKE_URL`; keep tarball versions aligned).
 ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz
+ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz
 RUN curl -fsSL -o /tmp/amxx-base.tgz "${AMXX_BASE_URL}" \
     && tar -xzf /tmp/amxx-base.tgz -C /opt/steam/hlds/cstrike \
     && rm -f /tmp/amxx-base.tgz \
+    && curl -fsSL -o /tmp/amxx-cstrike.tgz "${AMXX_CSTRIKE_URL}" \
+    && tar -xzf /tmp/amxx-cstrike.tgz -C /opt/steam/hlds/cstrike \
+    && rm -f /tmp/amxx-cstrike.tgz \
     && chown -R steam:steam /opt/steam/hlds/cstrike/addons/amxmodx
+
+# Leave stock modules.ini: engine/fakemeta/hamsandwich/json auto-load — enabling them explicitly causes
+# duplicate Metamod loads ("already loaded") and paused plugins such as lasermine.amxx.
+
+# Biohazard Lasermine (amxxpc-compiled upstream source with BIOHAZARD_SUPPORT; see stage lasermine-biohazard-compile).
+COPY --from=lasermine-biohazard-compile /amxx-kit/addons/amxmodx/scripting/lasermine.amxx \
+    /opt/steam/hlds/cstrike/addons/amxmodx/plugins/lasermine.amxx
 
 # After AMXX tarball: optional biohazard.amxx from image/zombiemod/extra-plugins/ + alternate plugins list.
 COPY image/zombiemod/extra-plugins/ /tmp/zombie-extra/
