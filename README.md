@@ -80,7 +80,7 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 | [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | Builds **[`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile)** into **`FASTDL_IMAGE_NAME`** (default **`cs16-fastdl:latest`**): copies **`maps/`**, **`models/`**, **`sound/`**, etc. from **`CS16_IMAGE_NAME`** at **build** time. See **[`fastdl/README.txt`](fastdl/README.txt)**. |
 | [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + BuildKit **`RUN --mount`** from the game image’s **`/opt/steam/hlds/cstrike`** (no game binaries on HTTP — only client-downloadable trees). |
 | [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static files, **`gzip off`**, **`application/octet-stream`**. |
-| [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`biohazard.amxx`**, **LaserTripmine** (`lasermine.amxx`), **`nextmap`** / **`mapchooser`** commented. |
+| [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`biohazard.amxx`**, **`lasermine.amxx`**, **`zp50_grenade_frost.amxx`** / **`zp50_grenade_fire.amxx`** (Bio ports of ZP grenades); **`nextmap`** / **`mapchooser`** commented. |
 
 ### Lasermines (Biohazard humans)
 
@@ -99,11 +99,16 @@ Classic Biohazard set a **private HUD “has NVG” bit** (`pdata`/offset hacks)
 
 **`addons/amxmodx/configs/bh_cvars.cfg`** sets **`bh_ammo`** for **humans only** — Biohazard skips this logic while **`g_zombie`** is true. **`1`** tops up reserve when it hits empty; **`2`** keeps the current magazine topped up whenever **`CurWeapon`** updates and refills reserve, which behaves like infinite ammo during combat. Change **`biohazard.sma`** (**`bh_ammo`** handler in **`event_curweapon`**) and rebuild **`biohazard.amxx`** (Biohazard **§2**) if you need further tweaks beyond the **`bh_cvars.cfg`** knobs.
 
-### Frost / napalm grenades (Zombie Plague–style)
+### Frost / napalm grenades (zp50-derived, Biohazard ports)
 
-There is **no frost / fire grenade plugin bundled here** — public implementations rely on **[Zombie Plague](https://forums.alliedmods.net/showthread.php?t=72505)** natives. Good **open-reference sources** under compatible licenses for study or porting: **[MultiModServer / zp50 scripting](https://github.com/evandrocoan/MultiModServer/tree/master/plugins/addons/amxmodx/scripting)** — **`[zp50_grenade_frost.sma](https://github.com/evandrocoan/MultiModServer/blob/master/plugins/addons/amxmodx/scripting/zp50_grenade_frost.sma)`** (frost cone / radius freeze, blue sprites) and **`[zp50_grenade_fire.sma](https://github.com/evandrocoan/MultiModServer/blob/master/plugins/addons/amxmodx/scripting/zp50_grenade_fire.sma)`** (burn-over-time napalm HE). Swap **`zp_*`** checks for Biohazard **`is_user_zombie()`** / **`g_zombie[]`** equivalents and wire explosions to grenade ents (smoke ↔ frost, HE ↔ fire) plus optional models/sounds and FastDL. Historical Bio addons are also discussed around the **[Biohazard AlliedModders thread](https://forums.alliedmods.net/showthread.php?t=68523)**.
+Bio profile enables **`zp50_grenade_frost.amxx`** and **`zp50_grenade_fire.amxx`** (after **`lasermine.amxx`** in **`plugins-biohazard.ini`**):
 
-**Blue light only (no freeze):** this repo’s **`bio_smokeflare`** turns smoke into a glowing blue flare (**`bio_smokeflare.amxx`** in **`image/zombiemod/extra-plugins/`**). Append **`bio_smokeflare.amxx`** to **`plugins-biohazard.ini`** after **`biohazard.amxx`** — see cvars **`bh_flare_enable`** and **`bh_flare_duration`** in **`bio_smokeflare.sma`**.
+- **`zp50_grenade_frost.sma`**: survivors’ **flashbang** gets a blue **`kRenderFxGlowShell`** plus **`sprites/laserbeam.spr`** trail; on explosion it freezes nearby **zombies** for **`zp_grenade_frost_duration`** seconds (**`zp_grenade_frost_hudicon`** toggles Damage icon). Uses **`warcraft3/frostnova.wav`** (and siblings) — include those paths on FastDL if clients error on missing downloads.
+- **`zp50_grenade_fire.sma`**: survivors’ **HE** gets red trail/orange cylinders; zombies in radius burn on **`zp_grenade_fire_duration`**-style stacking (**ticks** **`×5`** per 0.2s pulse, **`zp_grenade_fire_damage`**, slowdown **`zp_grenade_fire_slowdown`**). Burning uses **`#include fun`** (**`user_kill`**) — keep **`modules.ini`** **`fun`** enabled.
+
+Verbatim zp50 originals (need **`zp50_core`**, **`amx_settings_api`**, etc.) live in **`addons/amxmodx/scripting/upstream/evandrocoan_MultiModServer/`**.
+
+**Blue light without freeze:** optional **`bio_smokeflare`** — uncomment **`bio_smokeflare.amxx`** in **`plugins-biohazard.ini`** if wanted.
 
 ### FastDL (faster first-join downloads)
 
