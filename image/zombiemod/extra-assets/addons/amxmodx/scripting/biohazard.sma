@@ -284,7 +284,7 @@ new g_maxplayers, g_spawncount, g_buyzone, g_botclient_pdata, g_sync_hpdisplay,
     g_class_wmodel[MAX_CLASSES+1][64], Float:g_class_data[MAX_CLASSES+1][MAX_DATA]
     
 new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cvar_autonvg, 
-    cvar_winsounds, cvar_weaponsmenu, cvar_lights, cvar_killbonus, cvar_enabled, 
+    cvar_winsounds, cvar_roundstartsounds, cvar_weaponsmenu, cvar_lights, cvar_killbonus, cvar_enabled, 
     cvar_gamedescription, cvar_botquota, cvar_maxzombies, cvar_flashbang, cvar_buytime,
     cvar_respawnaszombie, cvar_punishsuicide, cvar_infectmoney, cvar_showtruehealth,
     cvar_obeyarmor, cvar_impactexplode, cvar_caphealthdisplay, cvar_zombie_hpmulti,
@@ -298,6 +298,19 @@ new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_block
     g_modelent[33], g_menuposition[33], g_player_class[33], g_player_weapons[33][2]
 new bool:g_bio_nv_client_on[33]
 new Float:g_bio_nv_next_cmd[33]
+
+stock bh_broadcast_sound(const snd[])
+{
+	new i
+
+	for(i = 1; i <= g_maxplayers; i++)
+	{
+		if(!is_user_connected(i) || is_user_hltv(i))
+			continue
+
+		emit_sound(i, CHAN_STATIC, snd, VOL_NORM, ATTN_NONE, 0, PITCH_NORM)
+	}
+}
 
 public plugin_precache()
 {
@@ -318,6 +331,7 @@ public plugin_precache()
 	cvar_randomspawn = register_cvar("bh_randomspawn", "0")
 	cvar_punishsuicide = register_cvar("bh_punishsuicide", "1")
 	cvar_winsounds = register_cvar("bh_winsounds", "1")
+	cvar_roundstartsounds = register_cvar("bh_roundstartsounds", "1")
 	cvar_autonvg = register_cvar("bh_autonvg", "1")
 	cvar_respawnaszombie = register_cvar("bh_respawnaszombie", "1")
 	cvar_painshockfree = register_cvar("bh_painshockfree", "1")
@@ -381,9 +395,15 @@ public plugin_precache()
 
 	precache_sound(BIO_SND_NVG_ON)
 	precache_sound(BIO_SND_NVG_OFF)
-	
-	for(i = 0; i < sizeof g_zombie_win_sounds; i++) 
+
+	for(i = 0; i < sizeof g_survivor_win_sounds; i++)
+		precache_sound(g_survivor_win_sounds[i])
+
+	for(i = 0; i < sizeof g_zombie_win_sounds; i++)
 		precache_sound(g_zombie_win_sounds[i])
+
+	for(i = 0; i < sizeof g_roundstart_sounds; i++)
+		precache_sound(g_roundstart_sounds[i])
 	
 	g_fwd_spawn = register_forward(FM_Spawn, "fwd_spawn")
 	
@@ -1854,6 +1874,10 @@ public task_initround()
 public task_startround()
 {
 	g_gamestarted = true
+
+	if(get_pcvar_num(cvar_roundstartsounds))
+		bh_broadcast_sound(g_roundstart_sounds[_random(sizeof g_roundstart_sounds)])
+
 	ExecuteForward(g_fwd_gamestart, g_fwd_result)
 }
 
