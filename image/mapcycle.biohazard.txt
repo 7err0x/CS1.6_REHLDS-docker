@@ -1,14 +1,11 @@
-// Dark / night ZM maps (HL2GO, baked at image build) + stock indoor + small arenas.
+// zm_* BSPs live in ./data/cs16-game-assets/maps/ — populate via compose profile download-assets (see README).
+// Dark / night ZM maps + stock indoor + arenas.
 zm_long_night_v2
-zm_nightmare
-zm_silent_hill
+// zm_nightmare
+// zm_silent_hill
+zm_assault_night
 zm_toronto
-zm_cbble_kamp
-zm_assault
 zm_inferno
 cs_estate
 cs_militia
-de_train
-fy_iceworld
-aim_map
-fy_snow
+

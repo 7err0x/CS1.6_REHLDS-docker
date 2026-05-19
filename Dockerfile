@@ -1,22 +1,9 @@
-# Small layer on top of blsalin/rehlds-cstrike: respawn-oriented mapcycle + baked community maps.
+# Small layer on top of blsalin/rehlds-cstrike: respawn-oriented mapcycle (+ optional image/custom-maps).
 # Upstream publishes to GHCR (Docker Hub name is often unavailable). Override at build time if needed.
 ARG HLDS_BASE_IMAGE=ghcr.io/blsalin/rehlds-cstrike:edge
 
-# ZM map extraction must NOT run `apt` on the HLDS image: the base image pins an older glibc, but
-# `apt-get upgrade` on inherited "stable" sources pulls glibc 2.41+, which then fails to load
-# engine_i486.so ("cannot enable executable stack … Invalid argument"). Fetch BSPs in an isolated stage.
-FROM debian:bookworm-slim AS zm-maps
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl unrar-free \
-    && rm -rf /var/lib/apt/lists/*
-COPY image/zombiemod/hl2go-zm-urls.txt /tmp/hl2go-zm-urls.txt
-COPY image/scripts/bake-zombie-night-maps.sh /tmp/bake-zombie-night-maps.sh
-ENV MAPS_DIR=/zm-maps-out \
-    ZM_MAPS_URL_FILE=/tmp/hl2go-zm-urls.txt
-RUN mkdir -p /zm-maps-out \
-    && chmod +x /tmp/bake-zombie-night-maps.sh \
-    && /tmp/bake-zombie-night-maps.sh \
-    && rm -f /tmp/bake-zombie-night-maps.sh /tmp/hl2go-zm-urls.txt
+# ZM / custom maps and GameBanana-style packs are no longer baked here — use the
+# `download-game-assets` compose service (see README) to populate ./data/cs16-game-assets/.
 
 # Compile Lasermine for Biohazard (public source, pinned commit) with the same AMXX kit as runtime.
 FROM debian:bookworm-slim AS lasermine-biohazard-compile
@@ -60,16 +47,12 @@ FROM ${HLDS_BASE_IMAGE}
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+COPY docker/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets.sh
+COPY docker/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
+RUN chmod +x /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh \
+    && chown steam:steam /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
+
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
-
-# Fetch standard FY / aim / AWP maps at build time (needs `docker compose build` with network).
-COPY image/scripts/bake-community-maps.sh /tmp/bake-community-maps.sh
-RUN chmod +x /tmp/bake-community-maps.sh \
-    && /tmp/bake-community-maps.sh \
-    && rm -f /tmp/bake-community-maps.sh
-
-# Popular dark ZM maps (HL2GO RAR → BSP); built in stage `zm-maps` so runtime glibc stays compatible.
-COPY --from=zm-maps /zm-maps-out/ /opt/steam/hlds/cstrike/maps/
 
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
 
@@ -80,8 +63,7 @@ RUN find /tmp/custom-maps-overlay -maxdepth 1 -name '*.bsp' -exec cp -v {} /opt/
 
 RUN chown steam:steam /opt/steam/hlds/cstrike/mapcycle.txt \
     /opt/steam/hlds/cstrike/mapcycle.biohazard.txt \
-    && find /opt/steam/hlds/cstrike/maps -user root -exec chown steam:steam {} \; \
-    && find /opt/steam/hlds/cstrike -maxdepth 1 -name 'de_vegas.wad' -user root -exec chown steam:steam {} \;
+    && find /opt/steam/hlds/cstrike/maps -user root -exec chown steam:steam {} \;
 
 # Replace base image AMXX 1.8.2 with 1.9.x (stable on ReHLDS / ReGameDLL; 1.8.x segfaults after map load here).
 # Override at build time (see docker-compose `AMXX_BASE_URL` / `AMXX_CSTRIKE_URL`; keep tarball versions aligned).

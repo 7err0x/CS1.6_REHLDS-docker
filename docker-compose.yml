@@ -1,14 +1,55 @@
 # Base image entrypoint ends with +map de_dust2; that map reloads after Metamod/AMXX init and overrides +map in command.
-# Drop the baked +map so the last +map in `command` wins (see blsalin/rehlds-cstrike image).
-x-hlds-entrypoint: &hlds_entrypoint
+# HLDS merges ./data/cs16-game-assets at start (`cs16-merge-game-assets-entrypoint.sh`).
+x-cs16-merge-entrypoint: &cs16_merge_entrypoint
+  - "/usr/local/sbin/cs16-merge-game-assets-entrypoint.sh"
+
+x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "./hlds_run"
   - "-timeout 3"
   - "-pingboost 1"
   - "-game cstrike"
+  - "+maxplayers"
+  - "${MAX_PLAYERS:-16}"
+  - "+rcon_password"
+  - "${RCON_PASSWORD:-changeme}"
+  - "+hostname"
+  - "${SERVER_HOSTNAME:-CS16-Respawn-Docker}"
+  - "+log"
+  - "on"
+  - "+map"
+  - "${START_MAP:-fy_iceworld}"
+
+x-cs16-biohazard-cmd: &cs16_biohazard_cmd
+  - "./hlds_run"
+  - "-timeout 3"
+  - "-pingboost 1"
+  - "-game cstrike"
+  - "+exec"
+  - "config/gamemode-biohazard.cfg"
+  - "+maxplayers"
+  - "${MAX_PLAYERS:-16}"
+  - "+rcon_password"
+  - "${BIOHAZARD_RCON_PASSWORD:-changeme}"
+  - "+hostname"
+  - "${BIOHAZARD_SERVER_HOSTNAME:-CS16-Biohazard}"
+  - "+log"
+  - "on"
+  - "+map"
+  - "${BIOHAZARD_START_MAP:-cs_estate}"
 
 services:
+  download-game-assets:
+    build:
+      context: .
+      dockerfile: docker/game-assets/Dockerfile
+    image: ${CS16_DOWNLOAD_ASSETS_IMAGE:-cs16-download-game-assets:latest}
+    profiles:
+      - download-assets
+    volumes:
+      - ./data/cs16-game-assets:/out
+
   cs16:
-    entrypoint: *hlds_entrypoint
+    entrypoint: *cs16_merge_entrypoint
     profiles:
       - respawn
     build:
@@ -23,36 +64,18 @@ services:
     container_name: cs16-respawn0
     restart: unless-stopped
     platform: linux/amd64
+    working_dir: /opt/steam/hlds
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
     volumes:
-      # Merged into the image cstrike tree; server.cfg chain loads config/server.cfg last.
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
-      # AMXX admins (edit on host; see README). Matches image default baked at build time.
       - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
-      # Optional: custom ReUnion rules (cid_* / AuthVersion). Copy defaults from the image first.
-      # - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
-      # If a map needs a missing texture WAD, copy it from your Steam cstrike folder and uncomment:
-      # - ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro
-    # Appended after the image ENTRYPOINT (hlds_run ... +map de_dust2). Last +map wins.
-    command:
-      - "+maxplayers"
-      - "${MAX_PLAYERS:-16}"
-      - "+rcon_password"
-      - "${RCON_PASSWORD:-changeme}"
-      - "+hostname"
-      - "${SERVER_HOSTNAME:-CS16-Respawn-Docker}"
-      - "+log"
-      - "on"
-      - "+map"
-      - "${START_MAP:-fy_iceworld}"
+    command: *cs16_respawn_cmd
 
-  # Biohazard / old-school infection (dark zm_/zb_ maps + dedicated plugins.ini). Not started by default.
-  # Run: docker compose --profile biohazard up -d
-  # Add biohazard.amxx to image/zombiemod/extra-plugins/ then docker compose build (see README).
   cs16-biohazard:
-    entrypoint: *hlds_entrypoint
+    entrypoint: *cs16_merge_entrypoint
     profiles:
       - biohazard
     build:
@@ -67,33 +90,19 @@ services:
     container_name: cs16-biohazard0
     restart: unless-stopped
     platform: linux/amd64
+    working_dir: /opt/steam/hlds
     ports:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
     volumes:
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
       - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
-      # Round-based infection tuning + mapcycle (replaces default respawn server.cfg for this container only).
       - ./cstrike/config/server-biohazard.cfg:/opt/steam/hlds/cstrike/config/server.cfg:ro
       - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
       - ./image/zombiemod/plugins-biohazard.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini:ro
-    command:
-      - "+exec"
-      - "config/gamemode-biohazard.cfg"
-      - "+maxplayers"
-      - "${MAX_PLAYERS:-16}"
-      - "+rcon_password"
-      - "${BIOHAZARD_RCON_PASSWORD:-changeme}"
-      - "+hostname"
-      - "${BIOHAZARD_SERVER_HOSTNAME:-CS16-Biohazard}"
-      - "+log"
-      - "on"
-      - "+map"
-      - "${BIOHAZARD_START_MAP:-cs_estate}"
+    command: *cs16_biohazard_cmd
 
-  # HTTP FastDL: nginx image built from GAME_IMAGE — copies maps/models/sound/… baked into cs16 image.
-  # Build game first, then fastdl: docker compose build cs16 fastdl
-  # Run: docker compose --profile fastdl up -d  (port FASTDL_HTTP_PORT, default 8080)
   fastdl:
     profiles:
       - fastdl
@@ -108,3 +117,5 @@ services:
     platform: linux/amd64
     ports:
       - "${FASTDL_HTTP_PORT:-8080}:80/tcp"
+    volumes:
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro

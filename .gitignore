@@ -1,1 +1,10 @@
 .env
+
+# Live-downloaded BSPs/audio/WAD overlays (see data/cs16-game-assets/*/ .gitkeep)
+data/cs16-game-assets/maps/*.bsp
+data/cs16-game-assets/sound/**
+data/cs16-game-assets/wads/**
+data/cs16-game-assets/**/*.wav
+data/cs16-game-assets/**/*.mp3
+!data/cs16-game-assets/**/.gitkeep
+!data/cs16-game-assets/README.txt

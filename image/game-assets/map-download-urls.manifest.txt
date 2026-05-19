@@ -1,0 +1,22 @@
+# -----------------------------------------------------------------------------
+# External CS 1.6 / GoldSrc payloads for data/cs16-game-assets/ (mounted into
+# HLDS + FastDL). One direct download URL per line. Lines starting with # are skipped.
+#
+# GameBanana (https://gamebanana.com) does not expose a stable public API here.
+# Use the site’s file download link (often files.gamebanana.com / CDN) so curl
+# receives the real archive bytes — same idea as AlliedModders file hosts.
+#
+# Supported archives after redirect: .rar (unrar-free), .zip (unzip), .7z optional.
+#
+# -----------------------------------------------------------------------------
+# HL2GO RAR packs (run compose profile download-assets before zm_* rotations).
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_long_night_v2/?download=15233
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_nightmare/?download=16248
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_silent_hill/?download=14968
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toronto/?download=15628
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_assault_night/?download=14738
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_inferno/?download=15543
+https://maps.cs-bg.info/get/396/maps16/
+#
+# Example GameBanana-style direct URLs (replace with URLs from the mod File page):
+# https://files.gamebanana.com/get.php?...your-file.zip

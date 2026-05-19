@@ -1,6 +1,6 @@
 # Counter-Strike 1.6 in Docker (respawn / deathmatch mode)
 
-This stack runs a **Counter-Strike 1.6** dedicated server using a **small custom image** built `FROM` the upstream [rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) container (default **`ghcr.io/blsalin/rehlds-cstrike:edge`** — see [GHCR package](https://github.com/BLSAlin/rehlds-cstrike/pkgs/container/rehlds-cstrike)). The **Dockerfile** overlays **AMX Mod X 1.9** (Linux base tarball from [AlliedModders releases](https://github.com/alliedmodders/amxmodx/releases)) because the upstream image’s **1.8.2** build **segfaults** after map load on this stack. It also installs **[ReUnion](https://github.com/rehlds/ReUnion)** and configures **Metamod-r** to load **ReUnion** then **AMXX** (`plugins.ini`). **ReGameDLL** stays active for **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`liblist.gam`** keeps **`secure "0"`** and **`cstrike/config/server.cfg`** sets **`secure 0`** so **VAC is off** for broad client compatibility (Steam + typical non‑Steam builds). The image bakes a **respawn-oriented mapcycle** and **community FY / aim / AWP maps**.
+This stack runs a **Counter-Strike 1.6** dedicated server using a **small custom image** built `FROM` the upstream [rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) container (default **`ghcr.io/blsalin/rehlds-cstrike:edge`** — see [GHCR package](https://github.com/BLSAlin/rehlds-cstrike/pkgs/container/rehlds-cstrike)). The **Dockerfile** overlays **AMX Mod X 1.9** (Linux base tarball from [AlliedModders releases](https://github.com/alliedmodders/amxmodx/releases)) because the upstream image’s **1.8.2** build **segfaults** after map load on this stack. It also installs **[ReUnion](https://github.com/rehlds/ReUnion)** and configures **Metamod-r** to load **ReUnion** then **AMXX** (`plugins.ini`). **ReGameDLL** stays active for **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`liblist.gam`** keeps **`secure "0"`** and **`cstrike/config/server.cfg`** sets **`secure 0`** so **VAC is off** for broad client compatibility (Steam + typical non‑Steam builds). The image bakes a **respawn-oriented stock mapcycle**. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (fed by **`image/game-assets/map-download-urls.manifest.txt`** + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**).
 
 **Requirements:** Docker with Compose, **x86_64** host (or Docker Desktop with **linux/amd64** emulation). **Steam and non‑Steam** clients can join when ReUnion + `secure 0` are in effect (see **`reunion.cfg`** baked into the image).
 
@@ -14,7 +14,7 @@ This stack runs a **Counter-Strike 1.6** dedicated server using a **small custom
    cp .env.example .env
    ```
 
-2. Build the game image (needs **network** once, to download `.bsp` files listed in `image/scripts/bake-community-maps.sh`), then start:
+2. Build the game image (needs **network** once at build for **AMXX** / **ReUnion** / LaserMine tarballs and similar), then start:
 
    ```bash
    docker compose build --pull
@@ -63,24 +63,45 @@ In `cstrike/config/server.cfg`:
 
 More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS) project (see `dist/game.cfg` in that repo for defaults and comments).
 
-### Maps and mapcycle (baked image)
+### Maps, downloadable extras (`./data/cs16-game-assets/`), FastDL
 
 | Path | Role |
 |------|------|
-| [`Dockerfile`](Dockerfile) | Bakes FY/aim maps, **dark `zm_*` maps** from HL2GO in a separate **`zm-maps`** build stage (see below), **`de_vegas.wad`**, downloads **AMXX 1.9** (`ARG AMXX_BASE_URL`), optional **`biohazard.amxx`** from **`image/zombiemod/extra-plugins/`**, Biohazard **`plugins-*.ini`** / **`mapcycle.biohazard.txt`**, installs **[ReUnion](https://github.com/rehlds/ReUnion)** (`ARG REUNION_VERSION`), **`plugins.ini`** = ReUnion + AMXX, **`secure "0"`** in **`liblist.gam`**, patches **`reunion.cfg`**. |
-| [`image/mapcycle.txt`](image/mapcycle.txt) | Rotation tuned for **respawn**: small **fy_** / **aim_** / **awp_** arenas first, then medium **stock** maps (`de_*`, `cs_*`) that ship with HLDS. |
-| [`image/scripts/bake-community-maps.sh`](image/scripts/bake-community-maps.sh) | At **build** time, `curl`s **`fy_iceworld`**, **`aim_map`**, **`fy_snow`**, **`awp_india`** from a public map mirror (`MAP_DOWNLOAD_BASE`, default `https://www.csboost.eu/downloads/maps`), then installs **`de_vegas.wad`** into `cstrike/` (zip from HL2GO; override with `DE_VEGAS_WAD_ZIP_URL` if needed). |
+| [`Dockerfile`](Dockerfile) | **`mapcycle*.txt`**, **`image/custom-maps/`** overlay (optional BSPs baked into **`cstrike/maps/`**), downloads **AMXX 1.9**, installs **`biohazard.amxx`** and **`plugins-*.ini`**, merges **`image/zombiemod/extra-assets/`**, **[ReUnion](https://github.com/rehlds/ReUnion)**, **`secure "0"`** in **`liblist.gam`**, patches **`reunion.cfg`**. **`zm_*` / WAD-heavy packs**: use **`download-game-assets`** → **`./data/cs16-game-assets/`** (see below). |
+| [`image/mapcycle.txt`](image/mapcycle.txt) | **Stock** **`de_*`** / **`cs_*`** rotation for **respawn**. Add arenas or **`fy_*`** by syncing **`maps/`** (manifest + **`download-game-assets`**) or dropping BSPs under **`image/custom-maps/`** / **`data/cs16-game-assets/maps/`**. |
 | [`image/custom-maps/`](image/custom-maps/) | Optional: add your own **`*.bsp`** here before `docker compose build`; they are **copied last** and can replace files with the same name. |
-| [`image/zombiemod/hl2go-zm-urls.txt`](image/zombiemod/hl2go-zm-urls.txt) | One **HL2GO** `?download=<id>` URL per line (comments with `#`). Consumed only in the **`zm-maps`** Docker build stage. |
-| [`image/scripts/bake-zombie-night-maps.sh`](image/scripts/bake-zombie-night-maps.sh) | Run in **`FROM debian:bookworm-slim AS zm-maps`**: **`curl`** each URL → **RAR** → **`unrar-free`** → **`*/maps/*.bsp`**, GoldSrc header check → **`COPY --from=zm-maps`** into **`cstrike/maps/`** on the HLDS image. Avoids **`apt`** on the runtime layer (newer **glibc** breaks **`engine_i486.so`**). Override list path with **`ZM_MAPS_URL_FILE`**. If HL2GO fails, fix URLs or add **`.bsp`** under **`image/custom-maps/`**. |
-| [`image/mapcycle.biohazard.txt`](image/mapcycle.biohazard.txt) | **Biohazard** profile: popular **dark `zm_*`** maps baked from HL2GO, then dark **stock** maps (**`cs_estate`**, **`cs_militia`**, **`de_train`**) and small **fy_** / **aim** arenas. |
+| [`docker-compose.yml`](docker-compose.yml) **`download-game-assets`** (profile **`download-assets`**) | One-shot image that runs **`image/scripts/map-download.sh`** → writes **`maps/`**, **`sound/`**, **`wads/`** under **`./data/cs16-game-assets/`** from URLs in **`image/game-assets/map-download-urls.manifest.txt`**. **`cs16`** / **`cs16-biohazard`** / **`fastdl`** bind-mount this tree (same host folder for server + FastDL). |
+| [`image/game-assets/map-download-urls.manifest.txt`](image/game-assets/map-download-urls.manifest.txt) | **URL manifest**: one **direct** download per line (comments `#`). Default list is **HL2GO `zm_*` RARs** plus other URLs you add — mods on [GameBanana](https://gamebanana.com) must be pasted as resolved **CDN file URLs**, not browse pages (no scraping in the script). |
+| [`image/scripts/map-download.sh`](image/scripts/map-download.sh) | Fetches manifests: **`.rar` / `.zip`** via **`curl -L`**, expands with **`unrar-free`/`unzip`**, keeps GoldSrc **`.bsp`**, nests **`wav`/`mp3`** under **`sound/`**, stores **`.wad`** in **`wads/`** (merged into **`cstrike/`** at HLDS startup via **`cs16-merge-game-assets`**). **`MANIFEST`** / **`OUT_DIR`** env overrides supported. |
+| [`data/cs16-game-assets/README.txt`](data/cs16-game-assets/README.txt) | Notes on the shared **`./data/cs16-game-assets/`** volume (permissions / layout). |
+| [`image/mapcycle.biohazard.txt`](image/mapcycle.biohazard.txt) | **Biohazard** rotation: **`zm_*`** BSPs from **`./data/cs16-game-assets/maps/`**, then **`cs_*` / `de_*`** (stock). **`BIOHAZARD_START_MAP`** defaults to **`cs_estate`** (stock) so you can boot before syncing extras. |
 | [`cstrike/config/gamemode-biohazard.cfg`](cstrike/config/gamemode-biohazard.cfg) | Boot **`+exec`**: **`mapcyclefile`** and **`mp_flashlight`**. |
 | [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg) | Mounted **as** **`config/server.cfg`** on **`cs16-biohazard`** — **`mp_forcerespawn 0`**, **`mapcycle.biohazard.txt`**, same VAC / comfort intent as the main **`server.cfg`**. |
 | [`cstrike/config/fastdl.cfg`](cstrike/config/fastdl.cfg) | Optional **HTTP FastDL**: uncomment **`sv_downloadurl`** so clients download maps / models / sounds over **HTTP** instead of the slow in-game channel (see **FastDL** below). |
-| [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | Builds **[`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile)** into **`FASTDL_IMAGE_NAME`** (default **`cs16-fastdl:latest`**): copies **`maps/`**, **`models/`**, **`sound/`**, etc. from **`CS16_IMAGE_NAME`** at **build** time. See **[`fastdl/README.txt`](fastdl/README.txt)**. |
-| [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + BuildKit **`RUN --mount`** from the game image’s **`/opt/steam/hlds/cstrike`** (no game binaries on HTTP — only client-downloadable trees). |
+| [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | **Nginx**: at **startup** merges **`maps/`/`sound/`/`models/`/… copied from **`CS16_IMAGE_NAME`** during **image build**, then overlays **`./data/cs16-game-assets`** (mounted read-only). Rebuild **`fastdl`** after game image bumps; **`restart`** is enough after extra downloads landed on disk. See **[`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile)**. |
+| [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + BuildKit **`RUN --mount`** snapshot of **`GAME_IMAGE`** `cstrike/`, plus **`entrypoint.sh`** merging **`/mnt/cs16-game-assets`** at start (same host extras as **`cs16`** / **`cs16-biohazard`**). |
 | [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static files, **`gzip off`**, **`application/octet-stream`**. |
 | [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`biohazard.amxx`**, **`lasermine.amxx`**, **`zp50_grenade_frost.amxx`** / **`zp50_grenade_fire.amxx`** (Bio ports of ZP grenades); **`nextmap`** / **`mapchooser`** commented. |
+
+**Download extras (`download-assets` profile):**
+
+```bash
+mkdir -p data/cs16-game-assets
+docker compose --profile download-assets run --rm download-game-assets
+```
+
+**Custom URL list:**
+
+```bash
+docker compose --profile download-assets run --rm \
+  -e MANIFEST=/mnt/myurls.txt \
+  -v "$PWD/my-gamebanana-urls.txt:/mnt/myurls.txt:ro" \
+  download-game-assets
+```
+
+Outputs: **`./data/cs16-game-assets/{maps,sound,wads}/`** — mounted read-only into **`cs16`**, **`cs16-biohazard`**, and **`fastdl`**. Paste **direct file URLs** from mod hosts (including [GameBanana](https://gamebanana.com) file CDN links).
+
+**Manual install — browser download or SCP:** unpack archives on your PC (or on the Docker host), then drop **`.bsp`** into **`data/cs16-game-assets/maps/`**, **`sound/**`**, **`wads/*.wad`**, etc. Full step-by-step layouts, **`docker cp`**, and optional image-based unpacking: **[`data/cs16-game-assets/README.txt`](data/cs16-game-assets/README.txt)**.
 
 ### Lasermines (Biohazard humans)
 
@@ -113,13 +134,11 @@ Verbatim zp50 originals (need **`zp50_core`**, **`amx_settings_api`**, etc.) liv
 
 ### FastDL (faster first-join downloads)
 
-Without **FastDL**, GoldSrc clients pull custom files from the server over the **game connection**, which is slow for **`zm_*` BSPs**, **`de_vegas.wad`**, and large mod packs (e.g. Biohazard **models/** / **sound/**).
+Without **FastDL**, GoldSrc clients pull custom files from the server over the **game connection**, which is slow for **`zm_*` BSPs**, large **`.wad`** files merged from **`data/cs16-game-assets/`**, and big mod packs (e.g. Biohazard **models/** / **sound/**).
 
 **Option A — FastDL image in this repo (Compose profile `fastdl`):**
 
-1. Build the **game** image, then **FastDL** (FastDL **copies** maps/models/sound/… from **`CS16_IMAGE_NAME`** into a small nginx image):  
-   **`docker compose build cs16 fastdl`**  
-   After you change baked maps, mods under **`image/zombiemod/extra-assets/`**, or **`Dockerfile`**, run **`build`** again for **both** so HTTP content matches the server.
+1. Build **game**, then **FastDL** (**`docker compose build cs16 fastdl`**). Changing **`GAME_IMAGE`** content or **`docker/fastdl/entrypoint.sh`** requires **`build fastdl`**. Adding files only under **`./data/cs16-game-assets/`** → **`restart`** (**`docker compose restart fastdl`**) usually enough — the nginx entrypoint overlays that mount each start.
 2. Start FastDL: **`docker compose --profile fastdl up -d`** ( **`FASTDL_HTTP_PORT`**, default **8080** ).
 3. In **`cstrike/config/fastdl.cfg`**, uncomment **`sv_downloadurl`** with a **trailing slash** (LAN example: **`http://192.168.1.10:8080/`**).
 4. Restart game containers if you only changed **`fastdl.cfg`**: **`docker compose restart cs16`** (and **`cs16-biohazard`** if used).
@@ -130,20 +149,22 @@ Without **FastDL**, GoldSrc clients pull custom files from the server over the *
 
 **Optional speed-ups:** pre-compress large files as **`.bz2`** next to the originals (e.g. **`maps/foo.bsp.bz2`**); many clients will prefer the smaller download. Keep **`sv_allowdownload 1`** (already in **`fastdl.cfg`**) so the slow path still works as a fallback.
 
-**Rebuild** after changing the mapcycle, **`hl2go-zm-urls.txt`**, the bake scripts, or files under `image/custom-maps/`:
+**Rebuild** after changing **`image/mapcycle*.txt`**, **`Dockerfile`**, or files under **`image/custom-maps/`**. **`image/game-assets/`** URL changes only require re-running **`download-assets`** (no image rebuild unless you change how **`download-game-assets`** is built):
 
 ```bash
 docker compose build --no-cache
 docker compose up -d --force-recreate
 ```
 
-If the mirror is down, point the build at another HTTP **FastDL**-style tree that stores the same filenames, or place `.bsp` files only under `image/custom-maps/` and trim `bake-community-maps.sh` to skip downloads.
+If a download URL breaks, edit **`image/game-assets/map-download-urls.manifest.txt`**, use **`MANIFEST=…`** override, paste BSPs/WADs into **`./data/cs16-game-assets/`**, or bake BSPs via **`image/custom-maps/`**.
 
 ---
 
 ## Biohazard / old-school infection (optional profile)
 
-This is a **second Compose service** on a **different host port** (default **27017**), tuned for **popular dark `zm_*` community maps** (HL2GO, baked at image build), **dark indoor stock maps**, and the same small **fy_** / **aim** arenas as the main image. **Classic Biohazard infection** uses the baked **`biohazard.amxx`** from **`image/zombiemod/extra-plugins/`**. Without the optional model/sound pack merged into **`extra-assets/`**, behaviour may be limited until those assets are added.
+This profile listens on **`BIOHAZARD_SERVER_PORT`** (default **27017**). **`zm_*`** maps live in **`./data/cs16-game-assets/maps/`** — populate with **`compose --profile download-assets`**; **`BIOHAZARD_START_MAP`** defaults to **`cs_estate`** (stock) so you can boot before syncing HL2GO / GameBanana packs. **`biohazard.amxx`** stays baked from **`image/zombiemod/extra-plugins/`** — expand **`extra-assets/`** for vendor models/sounds.
+
+The profile merges **`plugins-biohazard.ini`**, **`server-biohazard.cfg`**, and uses **`docker-compose.yml`** **`entrypoint`** (**`cs16-merge-game-assets-entrypoint.sh`**) ahead of **`hlds_run`** so **`./data/cs16-game-assets`** is layered into **`cstrike/`** each boot.
 
 ### 1. Biohazard AMXX plugin (included)
 
@@ -186,6 +207,8 @@ The canonical sources in this repo are **`image/zombiemod/extra-assets/addons/am
 ### 3. Start the Biohazard server
 
 ```bash
+mkdir -p data/cs16-game-assets
+docker compose --profile download-assets run --rm download-game-assets
 docker compose build --pull
 docker compose --profile biohazard up -d
 ```
@@ -194,7 +217,7 @@ docker compose --profile biohazard up -d
 - **Start map:** **`BIOHAZARD_START_MAP`** (default **`cs_estate`** — dark indoor stock map).
 - **Hostname / RCON:** **`BIOHAZARD_SERVER_HOSTNAME`**, **`BIOHAZARD_RCON_PASSWORD`** (see **`.env.example`**).
 
-The profile mounts **`image/zombiemod/plugins-biohazard.ini`** as **`plugins.ini`**, **`server-biohazard.cfg`** as **`server.cfg`**, and **`docker-compose.yml`** sets a custom **`entrypoint`** (same **`hlds_run`** flags as upstream **without** **`+map de_dust2`**) so your **`+map`** in **`command`** is not overridden after Metamod/AMXX init.
+The profile mounts **`plugins-biohazard.ini`**, **`server-biohazard.cfg`**, and uses **`docker-compose`** so **`command`** retains **`./hlds_run … +map`** (no baked **`+map de_dust2`** override).
 
 ### 4. Other zombie / ReAPI stacks (not in this image)
 
@@ -210,7 +233,7 @@ For a **ReAPI-native** rewrite (different install), see [ReBiohazard](https://gi
 | Start **Biohazard** profile too | `docker compose --profile biohazard up -d` |
 | Build FastDL from current game image | `docker compose build cs16 fastdl` |
 | Start **FastDL** (HTTP; maps/mods from game image) | `docker compose --profile fastdl up -d` |
-| Start game + Biohazard + FastDL | `docker compose --profile biohazard --profile fastdl up -d` |
+| Fetch **`zm_*` / GameBanana** archives → **`./data/cs16-game-assets/`** | `docker compose --profile download-assets run --rm download-game-assets` |
 | Stop | `docker compose down` |
 | Restart | `docker compose restart` |
 | Logs (follow) | `docker compose logs -f` |
@@ -244,7 +267,7 @@ That is **not** the **Source engine RCON** protocol (**TCP**, different packet l
    ```text
    rcon_password YOUR_PASSWORD_HERE
    rcon status
-   rcon changelevel fy_snow
+   rcon changelevel de_dust2
    ```
 
    Every **`rcon …`** line sends the text after **`rcon`** to the server console. Use the **same password** as **`RCON_PASSWORD`**.
@@ -298,8 +321,8 @@ Two stock plugins handle votes; both are in the default **`plugins.ini`**.
 2. **Vote on demand** — **`adminvote.amxx`**: console command **`amx_votemap`** (up to **four** map names). Requires an admin with the **`j`** (**ADMIN_VOTE**) flag in **`users.ini`** (a long **`abcdefghijklmnopqrstu`** access string includes it). Examples:
 
    ```text
-   rcon amx_votemap de_dust2 de_inferno fy_snow
-   rcon amx_votemap fy_iceworld aim_map awp_india
+   rcon amx_votemap de_dust2 de_inferno cs_office
+   rcon amx_votemap de_nuke de_train cs_italy
    rcon amx_cancelvote
    ```
 
@@ -378,14 +401,17 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 - **Client: “A connection to the Steam VAC server could not be made” (often during long map/mod downloads):** This comes from the **Steam client** failing to reach **Valve’s** VAC/auth endpoints over the internet — it is **not** your game server refusing the download and usually **not** something you fix in Docker. Your server runs **`secure 0`** (VAC off on the server), but the **Steam** app may still try to talk to Valve in the background. Fix on the **player PC**: allow **Steam** through firewall/antivirus (including outbound **HTTPS**), avoid aggressive VPNs for testing, restart Steam, check [Steam’s connectivity FAQ](https://help.steampowered.com/en/faqs/view/6C09-ED6F-3A21-D2AB). **Shorten in-game downloads** with **FastDL** (`sv_downloadurl` in **`cstrike/config/fastdl.cfg`**) so the client spends less time in a heavy “downloading resources” state (see **FastDL** above).
 - **ARM Mac:** ensure Docker can run **linux/amd64** images; gameplay may be slower under emulation.
 - **Respawn has no effect:** confirm logs show ReGameDLL / game DLL loading; `mp_forcerespawn` is a **ReGameDLL** cvar — do not strip ReGameDLL from a custom image.
-- **`TEX_InitFromWad: couldn't open de_vegas.wad`:** Several community maps (including **`fy_iceworld`**) still reference Valve’s **`de_vegas.wad`** textures, but many minimal HLDS installs do not ship that file. The bake script now downloads **`de_vegas.wad`** into `cstrike/` during **`docker compose build`**. Rebuild with `docker compose build --no-cache` and start again. If the download mirror fails, copy **`de_vegas.wad`** from a full CS 1.6 install (Steam: `Half-Life/cstrike/de_vegas.wad`) onto the host and add a read-only bind mount in `docker-compose.yml`, for example: `- ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro`.
+- **`TEX_InitFromWad: couldn't open de_vegas.wad`:** Some community maps reference **`de_vegas.wad`**; minimal HLDS layers may not ship it. Copy **`de_vegas.wad`** from a full CS 1.6 install (Steam: `Half-Life/cstrike/de_vegas.wad`) into **`./data/cs16-game-assets/wads/`** (restart **`cs16`** / **`cs16-biohazard`**) so **`cs16-merge-game-assets`** layers it into **`cstrike/`**, or bind-mount it read-only in **`docker-compose.yml`**, e.g. `- ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro`.
 - **`Steam validation rejected` (non‑Steam / cracked clients):** **`secure 0`** alone is not enough — ReHLDS still validates auth unless **ReUnion** accepts their client type. This image sets **`cid_NoSteam47 = 3`** and **`cid_NoSteam48 = 3`** in **`reunion.cfg`** (STEAM\_ IDs by IP) and **`AuthVersion = 2`**. Tune **`cid_*`** in **`reunion.cfg`** for your population; see [ReUnion](https://github.com/rehlds/ReUnion) and mount a custom file if needed.
 - **`Segmentation fault` right after `Mapchange …`:** Try **ReUnion-only** Metamod (`plugins.ini` with just **`reunion_mm_i386.so`**) to confirm AMXX or a specific **`.amxx`** plugin. Ensure the image still uses **AMXX 1.9** from the Dockerfile (`AMXX_BASE_URL`); the stock **1.8.2** in the base layer is known to crash here.
 - **Server dies when a Steam client joins:** Keep **`secure 0`** in **`cstrike/config/server.cfg`**; if you re-enable **`secure 1`**, you need a full Steam dedicated / VAC setup that survives in your container.
-- **`engine_i486.so: cannot enable executable stack … Invalid argument`:** Usually means the **HLDS** image was upgraded to **glibc 2.41+** while **`engine_i486.so`** still expects the older executable-stack behaviour. This project’s **Dockerfile** keeps **`apt`**/**`unrar`** only in the **`zm-maps`** stage and **`COPY --from`** the BSPs so the **ReHLDS** layer keeps the base **glibc**. **Rebuild** the image (`docker compose build --no-cache`). If you still hit this on the host, set **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** in the service **`environment`** (see [ReHLDS #1079](https://github.com/rehlds/ReHLDS/issues/1079)).
-- **`zm_*` / `zb_*` maps wrong BSP version / crash on load:** Many direct-download URLs return **HTML** instead of a GoldSrc map. This image bakes a curated list from **HL2GO** (RAR) with a BSP header check; if a build step fails, update **`image/zombiemod/hl2go-zm-urls.txt`** or drop known-good **`.bsp`** files into **`image/custom-maps/`**, align **`mapcycle.biohazard.txt`** basenames, and rebuild.
-- **Biohazard / infection errors or pink models:** Install the **full** pack assets into **`image/zombiemod/extra-assets/`** (not only **`biohazard.amxx`**) and rebuild.
-- **FastDL serves old maps / missing new mod files:** The **`fastdl`** image is a **snapshot** of **`CS16_IMAGE_NAME`** at **`docker compose build fastdl`** time. Rebuild both: **`docker compose build cs16 fastdl`**, then **`docker compose up -d --force-recreate`** (include **`--profile fastdl`** if you use FastDL). Requires **BuildKit** (default on current Docker) for **`docker/fastdl/Dockerfile`**.
+- **`engine_i486.so: cannot enable executable stack … Invalid argument`:** Usually indicates **glibc 2.41+** on the **runtime** HLDS layer vs **`engine_i486.so`**. This repo does not run **`apt upgrade`** on **`FROM blsalin/rehlds-cstrike`**. **Rebuild** **`cs16`** / **`cs16-biohazard`** from the pinned base. If hosts still glitch, **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** in **`environment`** ([ReHLDS #1079](https://github.com/rehlds/ReHLDS/issues/1079)).
+
+- **`zm_*` / `zb_*` maps wrong BSP / missing / crash:** Payload URLs must yield archives/BSP bytes (curl `-L`). Run **`compose --profile download-assets`**; fix **`image/game-assets/map-download-urls.manifest.txt`**, add **`.bsp`** via **`image/custom-maps/`** or **`./data/cs16-game-assets/maps/`**.
+
+- **Biohazard / infection errors or pink models:** Merge the official pack into **`image/zombiemod/extra-assets/`** (not only **`biohazard.amxx`**) and **`docker compose build`**.
+
+- **FastDL mismatches HLDS extras:** Restart **`fastdl`** after syncing **`./data/cs16-game-assets/`**; **`docker compose build cs16 fastdl`** when **`GAME_IMAGE`** blobs or **`docker/fastdl`** scripts change (**BuildKit** needed for **`RUN --mount`**).
 
 ---
 

@@ -1,9 +1,0 @@
-# GoldSrc ZM maps from HL2GO (RAR → cstrike/maps/*.bsp). One download URL per line.
-# Curated for dark / night / horror mood (popular ZM play).
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_long_night_v2/?download=15233
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_nightmare/?download=16248
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_silent_hill/?download=14968
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toronto/?download=15628
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_cbble_kamp/?download=16028
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_assault/?download=15758
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_inferno/?download=15543
