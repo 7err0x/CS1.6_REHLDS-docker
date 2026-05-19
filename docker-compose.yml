@@ -55,11 +55,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: cs16
       args:
-        HLDS_BASE_IMAGE: ${HLDS_BASE_IMAGE:-ghcr.io/blsalin/rehlds-cstrike:edge}
+        REHLDS_BUILD: ${REHLDS_BUILD:-3.13.0.788}
+        METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.138}
+        REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.26.0.668}
+        REAPI_VERSION: ${REAPI_VERSION:-5.24.0.300}
         AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
         AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
         LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
+        REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
     image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
     container_name: cs16-respawn0
     restart: unless-stopped
@@ -81,11 +86,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: cs16
       args:
-        HLDS_BASE_IMAGE: ${HLDS_BASE_IMAGE:-ghcr.io/blsalin/rehlds-cstrike:edge}
+        REHLDS_BUILD: ${REHLDS_BUILD:-3.13.0.788}
+        METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.138}
+        REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.26.0.668}
+        REAPI_VERSION: ${REAPI_VERSION:-5.24.0.300}
         AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
         AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
         LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
+        REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
     image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
     container_name: cs16-biohazard0
     restart: unless-stopped

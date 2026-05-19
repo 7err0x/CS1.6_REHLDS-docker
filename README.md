@@ -1,6 +1,6 @@
 # Counter-Strike 1.6 in Docker (respawn / deathmatch mode)
 
-This stack runs a **Counter-Strike 1.6** dedicated server using a **small custom image** built `FROM` the upstream [rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) container (default **`ghcr.io/blsalin/rehlds-cstrike:edge`** — see [GHCR package](https://github.com/BLSAlin/rehlds-cstrike/pkgs/container/rehlds-cstrike)). The **Dockerfile** overlays **AMX Mod X 1.9** (Linux base tarball from [AlliedModders releases](https://github.com/alliedmodders/amxmodx/releases)) because the upstream image’s **1.8.2** build **segfaults** after map load on this stack. It also installs **[ReUnion](https://github.com/rehlds/ReUnion)** and configures **Metamod-r** to load **ReUnion** then **AMXX** (`plugins.ini`). **ReGameDLL** stays active for **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`liblist.gam`** keeps **`secure "0"`** and **`cstrike/config/server.cfg`** sets **`secure 0`** so **VAC is off** for broad client compatibility (Steam + typical non‑Steam builds). The image bakes a **respawn-oriented stock mapcycle**. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (fed by **`image/game-assets/map-download-urls.manifest.txt`** + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**).
+This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage Dockerfile** in this repo (no dependency on a pre-built **`ghcr.io/blsalin/rehlds-cstrike`** image). Stage **`hlds-base`** vendors the [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) recipe ([upstream Dockerfile](https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile)): **SteamCMD** HLDS (`steam_legacy`), **ReHLDS**, **Metamod-r**, **ReGameDLL**, **ReAPI**. Stage **`amxx-build`** compiles **Lasermine** against **AMXX 1.9**. Stage **`cs16`** installs **AMXX 1.9** (not upstream’s 1.8.2, which **segfaults** here), **[ReUnion](https://github.com/rehlds/ReUnion)**, Biohazard assets, and **Metamod** order **ReUnion → AMXX**. **ReGameDLL** enables **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`secure 0`** / **`reunion.cfg`** support Steam + typical non‑Steam clients. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (manifest + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**).
 
 **Requirements:** Docker with Compose, **x86_64** host (or Docker Desktop with **linux/amd64** emulation). **Steam and non‑Steam** clients can join when ReUnion + `secure 0` are in effect (see **`reunion.cfg`** baked into the image).
 
@@ -14,12 +14,14 @@ This stack runs a **Counter-Strike 1.6** dedicated server using a **small custom
    cp .env.example .env
    ```
 
-2. Build the game image (needs **network** once at build for **AMXX** / **ReUnion** / LaserMine tarballs and similar), then start:
+2. Build the game image (needs **network**; first build runs **SteamCMD** and downloads HLDS + ReHLDS/ReGameDLL/ReAPI — often **10–30+ minutes** and **~2 GB**). Then start:
 
    ```bash
-   docker compose build --pull
+   docker compose build
    docker compose up -d
    ```
+
+   Bump engine versions via **`.env`** / build args: **`REHLDS_BUILD`**, **`REGAMEDLL_VERSION`**, **`METAMOD_VERSION`**, **`REAPI_VERSION`** (see **`.env.example`**). Recipe: **`lib/hlds.install`**, stage **`hlds-base`** in [`Dockerfile`](Dockerfile).
 
 3. In CS 1.6, open the console (`~`) and connect (use **`SERVER_PORT`** from **`.env`**; the default publish mapping is **27016** on the host → **27015** in the container):
 
@@ -67,7 +69,8 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 
 | Path | Role |
 |------|------|
-| [`Dockerfile`](Dockerfile) | **`mapcycle*.txt`**, **`image/custom-maps/`** overlay (optional BSPs baked into **`cstrike/maps/`**), downloads **AMXX 1.9**, installs **`biohazard.amxx`** and **`plugins-*.ini`**, merges **`image/zombiemod/extra-assets/`**, **[ReUnion](https://github.com/rehlds/ReUnion)**, **`secure "0"`** in **`liblist.gam`**, patches **`reunion.cfg`**. **`zm_*` / WAD-heavy packs**: use **`download-game-assets`** → **`./data/cs16-game-assets/`** (see below). |
+| [`Dockerfile`](Dockerfile) | **3 stages:** **`amxx-build`** (compile **lasermine**), **`hlds-base`** (SteamCMD + ReHLDS stack; pins in file / **`.env`**), **`cs16`** (**mapcycle***, **AMXX 1.9**, **ReUnion**, Biohazard). **`lib/hlds.install`** drives Steam app **90** `steam_legacy`. **`zm_*` packs**: **`download-game-assets`** → **`./data/cs16-game-assets/`** (below). |
+| [`lib/hlds.install`](lib/hlds.install) | SteamCMD script: install CS 1.6 dedicated (**`app_update 90 -beta steam_legacy`**). |
 | [`image/mapcycle.txt`](image/mapcycle.txt) | **Stock** **`de_*`** / **`cs_*`** rotation for **respawn**. Add arenas or **`fy_*`** by syncing **`maps/`** (manifest + **`download-game-assets`**) or dropping BSPs under **`image/custom-maps/`** / **`data/cs16-game-assets/maps/`**. |
 | [`image/custom-maps/`](image/custom-maps/) | Optional: add your own **`*.bsp`** here before `docker compose build`; they are **copied last** and can replace files with the same name. |
 | [`docker-compose.yml`](docker-compose.yml) **`download-game-assets`** (profile **`download-assets`**) | One-shot image that runs **`image/scripts/map-download.sh`** → writes **`maps/`**, **`sound/`**, **`wads/`**, **`models/`**, **`sprites/`** under **`./data/cs16-game-assets/`** from URLs in **`image/game-assets/map-download-urls.manifest.txt`**. **`cs16`** / **`cs16-biohazard`** / **`fastdl`** bind-mount this tree (same host folder for server + FastDL). |
@@ -520,9 +523,10 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 - **Respawn has no effect:** confirm logs show ReGameDLL / game DLL loading; `mp_forcerespawn` is a **ReGameDLL** cvar — do not strip ReGameDLL from a custom image.
 - **`TEX_InitFromWad: couldn't open de_vegas.wad`:** Some community maps reference **`de_vegas.wad`**; minimal HLDS layers may not ship it. Copy **`de_vegas.wad`** from a full CS 1.6 install (Steam: `Half-Life/cstrike/de_vegas.wad`) into **`./data/cs16-game-assets/wads/`** (restart **`cs16`** / **`cs16-biohazard`**) so **`cs16-merge-game-assets`** layers it into **`cstrike/`**, or bind-mount it read-only in **`docker-compose.yml`**, e.g. `- ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro`.
 - **`Steam validation rejected` (non‑Steam / cracked clients):** **`secure 0`** alone is not enough — ReHLDS still validates auth unless **ReUnion** accepts their client type. This image sets **`cid_NoSteam47 = 3`** and **`cid_NoSteam48 = 3`** in **`reunion.cfg`** (STEAM\_ IDs by IP) and **`AuthVersion = 2`**. Tune **`cid_*`** in **`reunion.cfg`** for your population; see [ReUnion](https://github.com/rehlds/ReUnion) and mount a custom file if needed.
-- **`Segmentation fault` right after `Mapchange …`:** Try **ReUnion-only** Metamod (`plugins.ini` with just **`reunion_mm_i386.so`**) to confirm AMXX or a specific **`.amxx`** plugin. Ensure the image still uses **AMXX 1.9** from the Dockerfile (`AMXX_BASE_URL`); the stock **1.8.2** in the base layer is known to crash here.
+- **`Segmentation fault` right after `Mapchange …`:** Try **ReUnion-only** Metamod (`plugins.ini` with just **`reunion_mm_i386.so`**) to confirm AMXX or a specific **`.amxx`** plugin. Ensure the image still uses **AMXX 1.9** from the Dockerfile (`AMXX_BASE_URL`); do not reinstall AMXX **1.8.x** into **`hlds-base`**.
 - **Server dies when a Steam client joins:** Keep **`secure 0`** in **`cstrike/config/server.cfg`**; if you re-enable **`secure 1`**, you need a full Steam dedicated / VAC setup that survives in your container.
-- **`engine_i486.so: cannot enable executable stack … Invalid argument`:** Usually indicates **glibc 2.41+** on the **runtime** HLDS layer vs **`engine_i486.so`**. This repo does not run **`apt upgrade`** on **`FROM blsalin/rehlds-cstrike`**. **Rebuild** **`cs16`** / **`cs16-biohazard`** from the pinned base. If hosts still glitch, **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** in **`environment`** ([ReHLDS #1079](https://github.com/rehlds/ReHLDS/issues/1079)).
+- **`engine_i486.so: cannot enable executable stack … Invalid argument`:** Usually **glibc 2.41+** vs **`engine_i486.so`**. **`hlds-base`** uses **`debian:bookworm-slim`** without a full **`apt upgrade`**. Rebuild the image; if needed set **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** on the service ([ReHLDS #1079](https://github.com/rehlds/ReHLDS/issues/1079)).
+- **SteamCMD / HLDS install fails during `docker compose build`:** Needs outbound HTTPS; retry **`docker compose build`**. Valve CDN or **`steam_legacy`** beta changes may require editing **`lib/hlds.install`**.
 
 - **`zm_*` / `zb_*` maps wrong BSP / missing / crash:** Payload URLs must yield archives/BSP bytes (curl `-L`). Run **`compose --profile download-assets`**; fix **`image/game-assets/map-download-urls.manifest.txt`**, add **`.bsp`** via **`image/custom-maps/`** or **`./data/cs16-game-assets/maps/`**.
 
@@ -534,7 +538,7 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 
 ## Credits
 
-- Server base: [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) ([`ghcr.io/blsalin/rehlds-cstrike`](https://github.com/BLSAlin/rehlds-cstrike/pkgs/container/rehlds-cstrike))  
+- HLDS build recipe: [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) (vendored in **`Dockerfile`** stage **`hlds-base`**)  
 - Non‑Steam / mixed auth: [ReUnion](https://github.com/rehlds/ReUnion)  
 - Respawn behaviour: [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS)  
 - Classic zombie infection mod: [Biohazard v2.00 Beta 3b — AlliedModders](https://forums.alliedmods.net/showthread.php?t=68523)  
