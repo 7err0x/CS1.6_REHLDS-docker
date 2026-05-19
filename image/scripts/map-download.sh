@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fetches archives listed in MANIFEST → writes ./maps, ./sound, ./wads under OUT_DIR.
+# Fetches archives listed in MANIFEST → writes maps, sound, wads, models, sprites under OUT_DIR.
 # Intended for Docker service `download-game-assets` or local OUT_DIR runs (see map-download-urls.manifest.txt).
 set -euo pipefail
 
@@ -55,9 +55,25 @@ archive_type_from_path() {
 	esac
 }
 
-install_maps_wads_sounds() {
+# Walk parents of $f upward; print path suffix under the first ancestor dir named $want (case-insensitive basename).
+rel_after_named_dir() {
+	local f="$1" want="${2,,}"
+	local p dir
+	p="$(dirname "$f")"
+	while [[ "$p" != "/" && "$p" != "." && -n "$p" ]]; do
+		dir="$(basename "$p")"
+		if [[ "${dir,,}" == "$want" ]]; then
+			printf '%s\n' "${f#"$p"/}"
+			return 0
+		fi
+		p="$(dirname "$p")"
+	done
+	return 1
+}
+
+install_extracted_assets() {
 	local root=$1
-	local bsp wad wav rel
+	local bsp wad wav rel f mrel srel
 
 	while IFS= read -r -d '' bsp; do
 		if goldsrc_bsp "$bsp"; then
@@ -86,6 +102,16 @@ install_maps_wads_sounds() {
 		fi
 		echo "  sound: ${rel:-_flat/$(basename "$wav")}"
 	done < <(find "$root" -type f \( -iname '*.wav' -o -iname '*.mp3' \) -print0 2>/dev/null)
+
+	while IFS= read -r -d '' f; do
+		if mrel="$(rel_after_named_dir "$f" models)"; then
+			install -D -m0644 "$f" "$OUT_DIR/models/$mrel"
+			echo "  model: $mrel"
+		elif srel="$(rel_after_named_dir "$f" sprites)"; then
+			install -D -m0644 "$f" "$OUT_DIR/sprites/$srel"
+			echo "  sprite: $srel"
+		fi
+	done < <(find "$root" -type f -print0 2>/dev/null)
 }
 
 fetch_one() {
@@ -110,7 +136,7 @@ fetch_one() {
 		return 1
 	fi
 
-	install_maps_wads_sounds "$dest"
+	install_extracted_assets "$dest"
 	rm -rf "$dest" "$tmp"
 }
 
@@ -124,7 +150,7 @@ main() {
 		exit 1
 	fi
 
-	mkdir -p "$OUT_DIR/maps" "$OUT_DIR/sound/_flat" "$OUT_DIR/wads"
+	mkdir -p "$OUT_DIR/maps" "$OUT_DIR/sound/_flat" "$OUT_DIR/wads" "$OUT_DIR/models" "$OUT_DIR/sprites"
 	echo "Writing assets to $OUT_DIR"
 
 	local line failed=0
