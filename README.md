@@ -283,9 +283,56 @@ docker compose --profile biohazard up -d
 
 - **Default listen:** **`BIOHAZARD_SERVER_PORT`** (**27017** → container **27015**). Connect from CS, for example: **`connect 127.0.0.1:27017`**.
 - **Start map:** **`BIOHAZARD_START_MAP`** (default **`cs_estate`** — dark indoor stock map).
-- **Hostname / RCON:** **`BIOHAZARD_SERVER_HOSTNAME`**, **`BIOHAZARD_RCON_PASSWORD`** (see **`.env.example`**).
+- **Hostname / RCON:** **`BIOHAZARD_SERVER_HOSTNAME`**, **`BIOHAZARD_RCON_PASSWORD`** (see **`.env.example`**). Use **`BIOHAZARD_RCON_PASSWORD`** (not **`RCON_PASSWORD`**) when sending **`rcon`** to this container on **`BIOHAZARD_SERVER_PORT`** (default **27017**).
 
 The profile mounts **`plugins-biohazard.ini`**, **`server-biohazard.cfg`**, and uses **`docker-compose`** so **`command`** retains **`./hlds_run … +map`** (no baked **`+map de_dust2`** override).
+
+### RCON: infect a player or end the round (Biohazard)
+
+Join **`cs16-biohazard`**, set the password, then prefix admin commands with **`rcon`** (same flow as [RCON (remote console)](#rcon-remote-console) below).
+
+```text
+rcon_password YOUR_BIOHAZARD_RCON_PASSWORD
+rcon status
+```
+
+#### Infect someone (`amx_infect`)
+
+Biohazard registers **`amx_infect`** in **`biohazard.sma`** (requires **AMXX `ADMIN_BAN`** — flag **`d`** in **`cstrike/amxmodx/users.ini`**, or use RCON / server console which runs as full access):
+
+```text
+rcon amx_infect PlayerName
+rcon amx_infect #4
+```
+
+| Argument | Example |
+|----------|---------|
+| Partial name | **`rcon amx_infect rob`** |
+| **`#userid`** | From **`rcon status`** (first column) — **`rcon amx_infect #3`** |
+
+**When it works:**
+
+- The infection round has **started** (after **`bh_starttime`**, default **15** seconds from round start). Otherwise the server prints *Game has not started yet.*
+- Target is **connected**, **alive**, and **not already** a zombie.
+- **`bh_maxzombies`** (default **31**) is not exceeded and at least **two** humans are alive. If you hit *Max zombies reached*, slay a zombie first or **`rcon bh_maxzombies 32`**.
+
+There is **no** built-in **`amx_cure`** / **`amx_human`** in this Biohazard build — only **`amx_infect`**.
+
+#### Finish / restart the round
+
+Biohazard does not add a dedicated “end round” admin command. Use engine / stock AMXX tools:
+
+| Goal | RCON example | Notes |
+|------|----------------|-------|
+| **Restart round quickly** | **`rcon sv_restart 1`** | Standard HLDS; starts a fresh round (new infection countdown). |
+| **Zombies win (survivors dead)** | **`rcon amx_slay @ct`** | Survivors are **CT**; triggers *Zombies win!* |
+| **Survivors win (zombies dead)** | **`rcon amx_slay @t`** | Zombies are **T**; triggers *Survivors win!* |
+| **Slay one player** | **`rcon amx_slay PlayerName`** | Stock **`admincmd.amxx`** (in **`plugins-biohazard.ini`**). |
+| **Next map / hard reset** | **`rcon changelevel zm_dust`** | Use a map from **`mapcycle.biohazard.txt`**. |
+
+**`amx_slay`** needs admin access (flag **`d`** or full flags in **`users.ini`**, or RCON).
+
+**Infect everyone manually:** repeat **`rcon amx_infect`** on each survivor, or slay CTs for a zombie win. Rounds also end when one side is wiped or **`mp_timelimit`** expires (**`server-biohazard.cfg`**).
 
 ### 4. Other zombie / ReAPI stacks (not in this image)
 
@@ -367,6 +414,8 @@ If you only need **file edits** (maps, cvars in **`server.cfg`**, AMXX **`users.
 | `sv_restart 1` | Quick restart |
 | `rcon_password ...` | Change RCON password at runtime (also set in `.env` for next restart) |
 | `amx_reloadadmins` | Reload **`users.ini`** after you edit AMXX admins on the host |
+
+**Biohazard profile (`cs16-biohazard`):** infect / round control — **`amx_infect`**, **`amx_slay @ct`** / **`@t`**, **`sv_restart 1`** — see [RCON: infect a player or end the round (Biohazard)](#rcon-infect-a-player-or-end-the-round-biohazard). Use **`BIOHAZARD_RCON_PASSWORD`** on port **`BIOHAZARD_SERVER_PORT`** (default **27017**).
 
 ### Respawn and deathmatch (RCON)
 
