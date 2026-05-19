@@ -117,6 +117,74 @@ The image includes **[Amxx Laser TripMine Entity](https://github.com/AoiKagase/A
 
 Classic Biohazard set a **private HUD “has NVG” bit** (`pdata`/offset hacks). Current **HLDS/ReGameDLL** only honors night vision when **`m_bHasNightVision`** is set on the CS player (`ClientCommand nightvision` **returns immediately** otherwise), so goggles never toggle reliably. This repo **`fm_set_user_nvg`** delegates to **`cs_set_user_nvg`** from **`#include <cstrike>`** so infection/cure stays in sync with the game DLL; **alive zombies** additionally have **`nightvision`** handled in **`biohazard.sma`**, sending **`NVGToggle`** (**`get_user_msgid("NVGToggle")`**) plus **`items/nvg_on.wav` / `nvg_off.wav`**, bypassing flaky native command handling. Earlier tweaks remain: **`FM_CmdStart`** no longer strips impulse **100**, **`fwd_emitsound`** no longer supersede **`items/nvg_*.wav`**, and **`customflashlight`** leaves impulse **100** alone for zombies. Bind **`nightvision`** (often default **N**). **`bh_autonvg`** runs **`nightvision`** once after infect if enabled.
 
+### Map brightness and flashlights (Biohazard)
+
+**`cs16-biohazard` only** — the respawn **`cs16`** profile does not load Biohazard lighting overrides.
+
+#### Whole-map brightness (server)
+
+GoldSrc uses a single **ambient light style** for the map. Biohazard sets it from **`bh_lights`** in **`image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg`** (baked into the image; reapplied every few seconds via **`biohazard.sma`**):
+
+| Value | Effect |
+|--------|--------|
+| **`a`** … **`z`** | Darkest → brightest global ambient (`a` = very dark, `m`–`n` = typical indoor, `z` = very bright) |
+| **`""`** (empty) | Disable override — use each map’s compiled lighting |
+
+Related cvars in the same file:
+
+- **`bh_skyname`** — sets **`sv_skyname`** (default **`drkg`** for a darker sky). Leave blank to stop overriding.
+- When **`bh_lights`** is non-empty, Biohazard also forces **`sv_skycolor_r/g/b`** to **0** for a darker horizon.
+
+**Night `zm_*` maps** are often dark in the BSP; raising **`bh_lights`** (e.g. **`m`** or **`p`**) is the usual fix. Per-room lighting baked into a **`.bsp`** cannot be changed from config without recompiling the map.
+
+**Runtime (after join, with RCON):**
+
+```text
+rcon bh_lights m
+rcon bh_skyname ""
+```
+
+Rebuild the image only if you edit **`bh_cvars.cfg`** on the host before **`docker compose build`**; RCON changes apply until restart.
+
+**Per-player “brightness”** (video **gamma** / **brightness** in the CS client menu) is **client-only** and does not affect other players.
+
+#### Flashlights
+
+Two layers on Biohazard:
+
+1. **Engine flashlight** — **`mp_flashlight 1`** in **`cstrike/config/gamemode-biohazard.cfg`** and **`cstrike/config/server-biohazard.cfg`**. Players use the default bind (**impulse 100**, often **F**). This is the stock HL cone; it does not brighten the whole map.
+
+2. **Custom flashlight plugin** — cvars at the bottom of **`bh_cvars.cfg`** ( **`customflashlight.sma`** in the Biohazard pack):
+
+| Cvar | Role (defaults in repo) |
+|------|-------------------------|
+| **`flashlight_custom`** | **`1`** = custom drain/charge/colored beam; **`0`** = stock behavior only |
+| **`flashlight_show_all`** | **`1`** = others see your beam; **`0`** = local only |
+| **`flashlight_fulldrain_time`** | Seconds until battery empty (**`200`**) |
+| **`flashlight_fullcharge_time`** | Seconds to recharge (**`15`**) |
+| **`flashlight_color_type`** | **`0`** random palette, **`1`** team colors |
+| **`flashlight_color_ct`** / **`flashlight_color_te`** | RGB string when type is **`1`** (e.g. **`255255255`**) |
+| **`flashlight_radius`** | Survivor beam size (**`18`** in **`bh_cvars.cfg`**) — see **RCON** below |
+| **`flashlight_distance_max`** | How far others see the beam (**`4000.0`**) |
+| **`flashlight_attenuation`** | Falloff with distance (**`5`**) |
+
+**Plugin must be loaded:** **`customflashlight.amxx`** ships under **`image/zombiemod/extra-assets/addons/amxmodx/plugins/`** but is **not** enabled in **`image/zombiemod/plugins-biohazard.ini`** by default. Add a line **`customflashlight.amxx`** (after **`biohazard.amxx`**) and restart **`cs16-biohazard`** so **`flashlight_*`** cvars do anything. With **`flashlight_custom 0`**, only stock **`mp_flashlight`** applies and **`flashlight_radius`** is ignored.
+
+**Survivors only — zombies are excluded:** In **`customflashlight.sma`**, impulse **100** (default **F**) is ignored when **`is_user_zombie(id)`**; infection calls **`FlashlightTurnOff`**. The colored **`TE_DLIGHT`** beam (where **`flashlight_radius`** is read) runs only for **humans**. **Zombies** use **night vision** (**`nightvision`** / **`NVGToggle`** / **`bh_autonvg`** in **`biohazard.sma`**), which does **not** use **`flashlight_radius`**. To brighten zombies, use **`bh_lights`** (whole map) or NVG, not **`flashlight_radius`**.
+
+**Set beam size from RCON (humans, custom plugin on):**
+
+```text
+rcon_password YOUR_RCON_PASSWORD
+rcon flashlight_radius 25
+```
+
+Server console / **`docker exec`** (no **`rcon`** prefix): **`flashlight_radius 25`**.
+
+Requirements: **`flashlight_custom 1`**, **`customflashlight.amxx`** loaded. The plugin reads **`flashlight_radius`** each time it draws the beam; toggle the flashlight off/on if you do not see a change. Other **`flashlight_*`** cvars use the same pattern (e.g. **`rcon flashlight_distance_max 3000`**).
+
+**Persistence:** RCON changes last until the server restarts or the map changes — Biohazard **`exec`s `bh_cvars.cfg`** on each map load from **`plugin_precache()`**, which resets **`flashlight_radius`** to the value in that file. For a permanent default, edit **`bh_cvars.cfg`** and rebuild or copy into the container. **`bh_flashbang`** controls whether flashbangs only blind zombies.
+
 ### Survivor ammo (`bh_ammo`)
 
 **`addons/amxmodx/configs/bh_cvars.cfg`** sets **`bh_ammo`** for **humans only** — Biohazard skips this logic while **`g_zombie`** is true. **`1`** tops up reserve when it hits empty; **`2`** keeps the current magazine topped up whenever **`CurWeapon`** updates and refills reserve, which behaves like infinite ammo during combat. Change **`biohazard.sma`** (**`bh_ammo`** handler in **`event_curweapon`**) and rebuild **`biohazard.amxx`** (Biohazard **§2**) if you need further tweaks beyond the **`bh_cvars.cfg`** knobs.
