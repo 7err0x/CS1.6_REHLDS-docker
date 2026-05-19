@@ -1,9 +1,13 @@
 // Respawn-friendly rotation: Valve stock maps (HLDS). Add FY/aim/custom BSPs via
 // ./data/cs16-game-assets/maps/ or image/game-assets/map-download-urls.manifest.txt + download-assets.
 
+fy_snow
+fy_pool_day
+aim_map
+awp_india_ks
+de_westwood
 de_dust2
 de_inferno
-de_westwood
 de_nuke
 cs_office
 de_train
