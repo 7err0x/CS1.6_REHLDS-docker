@@ -4,7 +4,7 @@
 # Upstream reference: https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile
 
 # -----------------------------------------------------------------------------
-# Stage 1 — AMXX kit + compile lasermine (Biohazard build)
+# Stage 1 — AMXX kit + compile all Biohazard-pack .sma (incl. lasermine)
 # -----------------------------------------------------------------------------
 FROM debian:bookworm-slim AS amxx-build
 
@@ -21,10 +21,12 @@ WORKDIR /amxx-kit
 RUN curl -fsSL "${AMXX_BASE_URL}" | tar -xzf - \
     && curl -fsSL "${AMXX_CSTRIKE_URL}" | tar -xzf -
 
-COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/include/biohazard.inc \
-    /amxx-kit/addons/amxmodx/scripting/include/biohazard.inc
-
 WORKDIR /amxx-kit/addons/amxmodx/scripting
+
+COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/*.sma ./
+COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/*.cfg ./
+COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/include/ ./include/
+
 RUN curl -fsSL "https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity/archive/${LASERMINE_GIT_SHA}.tar.gz" | tar -xzf - \
     && srcdir="Amxx-Laser-TripMine-Entity-${LASERMINE_GIT_SHA}" \
     && cp "${srcdir}/cstrike/addons/amxmodx/scripting/lasermine.sma" . \
@@ -39,10 +41,11 @@ RUN curl -fsSL "https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity/archive/
     && { grep -q 'register_clcmd("+dellaser"' lasermine.sma || perl -0777 -i -pe 's/(\tregister_clcmd\("say",\s*"lm_say_lasermine"\);\n)/\tregister_clcmd("+dellaser", \t"lm_progress_remove");\n\tregister_clcmd("-dellaser", \t"lm_progress_stop");\n\n$1/sm' lasermine.sma; } \
     && perl -0777 -i \
         -pe 's/stock bool:check_plugin\(\)\s*\{(?:.|\n)*?\n}/stock bool:check_plugin()\n{\n\t\/\/ ReUnion sets reu_version; upstream mistakenly treats this as non-Steam and runs amxx pause lasermine.\n\treturn false;\n}/s' \
-        include/lasermine_util.inc \
-    && chmod +x amxxpc \
-    && ./amxxpc lasermine.sma \
-    && test -f lasermine.amxx
+        include/lasermine_util.inc
+
+COPY docker/amxx-compile-all.sh /usr/local/bin/amxx-compile-all.sh
+RUN chmod +x /usr/local/bin/amxx-compile-all.sh \
+    && /usr/local/bin/amxx-compile-all.sh
 
 # -----------------------------------------------------------------------------
 # Stage 2 — HLDS + ReHLDS + Metamod + ReGameDLL + ReAPI (no AMXX 1.8 — runtime uses 1.9)
@@ -182,12 +185,13 @@ RUN curl -fsSL -o /tmp/amxx-base.tgz "${AMXX_BASE_URL}" \
        fi \
     && chown -R steam:steam /opt/steam/hlds/cstrike/addons/amxmodx
 
-COPY --from=amxx-build /amxx-kit/addons/amxmodx/scripting/lasermine.amxx \
-    /opt/steam/hlds/cstrike/addons/amxmodx/plugins/lasermine.amxx
-
+# Optional pre-built overrides (skipped when empty); fresh compiles below replace same filenames.
 COPY image/zombiemod/extra-plugins/ /tmp/zombie-extra/
 RUN bash -c 'shopt -s nullglob; for f in /tmp/zombie-extra/*.amxx; do cp -v "$f" /opt/steam/hlds/cstrike/addons/amxmodx/plugins/; done' \
     && rm -rf /tmp/zombie-extra
+
+COPY --from=amxx-build /amxx-kit/addons/amxmodx/scripting/*.amxx \
+    /opt/steam/hlds/cstrike/addons/amxmodx/plugins/
 
 COPY image/zombiemod/plugins-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins-biohazard.ini
 

@@ -1,4 +1,4 @@
-/*	Copyright ù 2008, ConnorMcLeod
+/*	Copyright ÔøΩ 2008, ConnorMcLeod
 
 	Custom Flashlight is free software;
 	you can redistribute it and/or modify it under the terms of the
@@ -109,10 +109,10 @@ public plugin_init2()
 	g_pcvarFlashColorCt = register_cvar("flashlight_color_ct", "255255255") // RRRGGGBBB
 	g_pcvarFlashColorTe = register_cvar("flashlight_color_te", "255255255") // RRRGGGBBB
 
-	g_pcvarFlashRadius = register_cvar("flashlight_radius", "9")
+	g_pcvarFlashRadius = register_cvar("flashlight_radius", "10")
 
-	g_pcvarFlashMaxDist = register_cvar("flashlight_distance_max", "2000")
-	g_pcvarFlashAttn = register_cvar("flashlight_attenuation", "5")
+	g_pcvarFlashMaxDist = register_cvar("flashlight_distance_max", "4000")
+	g_pcvarFlashAttn = register_cvar("flashlight_attenuation", "0")
 
 
 	register_forward(FM_PlayerPreThink, "PlayerPreThink")

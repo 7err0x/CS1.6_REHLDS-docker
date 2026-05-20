@@ -1,6 +1,7 @@
-Optional compiled AMXX plugins copied into the image at build time.
+Optional local AMXX overrides (not committed).
 
-Place biohazard.amxx here (from the official Biohazard v2.00 Beta 3b pack on AlliedModders),
-then run: docker compose build
+Drop *.amxx here only if you need a vendor binary without in-tree .sma sources.
+Files are gitignored; docker compose build copies them, then stage amxx-build
+overwrites any name that was compiled from extra-assets/.../scripting/.
 
-The Dockerfile copies every *.amxx from this directory into addons/amxmodx/plugins/.
+Normal workflow: edit .sma under extra-assets/.../scripting/ and rebuild the image.

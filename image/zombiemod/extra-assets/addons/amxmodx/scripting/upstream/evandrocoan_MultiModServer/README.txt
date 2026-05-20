@@ -3,6 +3,6 @@ They reference zp50_core, zp50_class_nemesis, amx_settings_api, cs_weap_models_a
 and do not compile in this Biohazard image without that full stack.
 
 Biohazard-specific ports ship as the sibling ../../zp50_grenade_frost.sma and
-../../zp50_grenade_fire.sma (sources) with matching .amxx in extra-plugins.
+../../zp50_grenade_fire.sma; .amxx binaries are built in the Docker image.
 
 Upstream tree: https://github.com/evandrocoan/MultiModServer/tree/master/plugins/addons/amxmodx/scripting

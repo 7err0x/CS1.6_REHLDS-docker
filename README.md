@@ -1,6 +1,6 @@
 # Counter-Strike 1.6 in Docker (respawn / deathmatch mode)
 
-This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage Dockerfile** in this repo (no dependency on a pre-built **`ghcr.io/blsalin/rehlds-cstrike`** image). Stage **`hlds-base`** vendors the [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) recipe ([upstream Dockerfile](https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile)): **SteamCMD** HLDS (`steam_legacy`), **ReHLDS**, **Metamod-r**, **ReGameDLL**, **ReAPI**. Stage **`amxx-build`** compiles **Lasermine** against **AMXX 1.9**. Stage **`cs16`** installs **AMXX 1.9** (not upstream’s 1.8.2, which **segfaults** here), **[ReUnion](https://github.com/rehlds/ReUnion)**, Biohazard assets, and **Metamod** order **ReUnion → AMXX**. **ReGameDLL** enables **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`secure 0`** / **`reunion.cfg`** support Steam + typical non‑Steam clients. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (manifest + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**).
+This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage Dockerfile** in this repo (no dependency on a pre-built **`ghcr.io/blsalin/rehlds-cstrike`** image). Stage **`hlds-base`** vendors the [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) recipe ([upstream Dockerfile](https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile)): **SteamCMD** HLDS (`steam_legacy`), **ReHLDS**, **Metamod-r**, **ReGameDLL**, **ReAPI**. Stage **`amxx-build`** compiles **all Biohazard-pack `.sma`** sources (incl. **Lasermine** with Biohazard patches) against **AMXX 1.9**. Stage **`cs16`** installs **AMXX 1.9** (not upstream’s 1.8.2, which **segfaults** here), **[ReUnion](https://github.com/rehlds/ReUnion)**, Biohazard assets, and **Metamod** order **ReUnion → AMXX**. **ReGameDLL** enables **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`secure 0`** / **`reunion.cfg`** support Steam + typical non‑Steam clients. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (manifest + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**).
 
 **Requirements:** Docker with Compose, **x86_64** host (or Docker Desktop with **linux/amd64** emulation). **Steam and non‑Steam** clients can join when ReUnion + `secure 0` are in effect (see **`reunion.cfg`** baked into the image).
 
@@ -69,7 +69,7 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 
 | Path | Role |
 |------|------|
-| [`Dockerfile`](Dockerfile) | **3 stages:** **`amxx-build`** (compile **lasermine**), **`hlds-base`** (SteamCMD + ReHLDS stack; pins in file / **`.env`**), **`cs16`** (**mapcycle***, **AMXX 1.9**, **ReUnion**, Biohazard). **`lib/hlds.install`** drives Steam app **90** `steam_legacy`. **`zm_*` packs**: **`download-game-assets`** → **`./data/cs16-game-assets/`** (below). |
+| [`Dockerfile`](Dockerfile) | **3 stages:** **`amxx-build`** (compile all pack **`.sma`**), **`hlds-base`** (SteamCMD + ReHLDS stack; pins in file / **`.env`**), **`cs16`** (**mapcycle***, **AMXX 1.9**, **ReUnion**, Biohazard). **`lib/hlds.install`** drives Steam app **90** `steam_legacy`. **`zm_*` packs**: **`download-game-assets`** → **`./data/cs16-game-assets/`** (below). |
 | [`lib/hlds.install`](lib/hlds.install) | SteamCMD script: install CS 1.6 dedicated (**`app_update 90 -beta steam_legacy`**). |
 | [`image/mapcycle.txt`](image/mapcycle.txt) | **Stock** **`de_*`** / **`cs_*`** rotation for **respawn**. Add arenas or **`fy_*`** by syncing **`maps/`** (manifest + **`download-game-assets`**) or dropping BSPs under **`image/custom-maps/`** / **`data/cs16-game-assets/maps/`**. |
 | [`image/custom-maps/`](image/custom-maps/) | Optional: add your own **`*.bsp`** here before `docker compose build`; they are **copied last** and can replace files with the same name. |
@@ -171,7 +171,7 @@ Two layers on Biohazard:
 | **`flashlight_distance_max`** | How far others see the beam (**`4000.0`**) |
 | **`flashlight_attenuation`** | Falloff with distance (**`5`**) |
 
-**Plugin must be loaded:** **`customflashlight.amxx`** ships under **`image/zombiemod/extra-assets/addons/amxmodx/plugins/`** but is **not** enabled in **`image/zombiemod/plugins-biohazard.ini`** by default. Add a line **`customflashlight.amxx`** (after **`biohazard.amxx`**) and restart **`cs16-biohazard`** so **`flashlight_*`** cvars do anything. With **`flashlight_custom 0`**, only stock **`mp_flashlight`** applies and **`flashlight_radius`** is ignored.
+**Plugin must be loaded:** **`customflashlight.amxx`** is compiled at image build but is **not** enabled in **`image/zombiemod/plugins-biohazard.ini`** by default. Add a line **`customflashlight.amxx`** (after **`biohazard.amxx`**) and restart **`cs16-biohazard`** so **`flashlight_*`** cvars do anything. With **`flashlight_custom 0`**, only stock **`mp_flashlight`** applies and **`flashlight_radius`** is ignored.
 
 **Survivors only — zombies are excluded:** In **`customflashlight.sma`**, impulse **100** (default **F**) is ignored when **`is_user_zombie(id)`**; infection calls **`FlashlightTurnOff`**. The colored **`TE_DLIGHT`** beam (where **`flashlight_radius`** is read) runs only for **humans**. **Zombies** use **night vision** (**`nightvision`** / **`NVGToggle`** / **`bh_autonvg`** in **`biohazard.sma`**), which does **not** use **`flashlight_radius`**. To brighten zombies, use **`bh_lights`** (whole map) or NVG, not **`flashlight_radius`**.
 
@@ -233,13 +233,13 @@ If a download URL breaks, edit **`image/game-assets/map-download-urls.manifest.t
 
 ## Biohazard / old-school infection (optional profile)
 
-This profile listens on **`BIOHAZARD_SERVER_PORT`** (default **27017**). **`zm_*`** maps live in **`./data/cs16-game-assets/maps/`** — populate with **`compose --profile download-assets`**; **`BIOHAZARD_START_MAP`** defaults to **`cs_estate`** (stock) so you can boot before syncing HL2GO / GameBanana packs. **`biohazard.amxx`** stays baked from **`image/zombiemod/extra-plugins/`** — expand **`extra-assets/`** for vendor models/sounds.
+This profile listens on **`BIOHAZARD_SERVER_PORT`** (default **27017**). **`zm_*`** maps live in **`./data/cs16-game-assets/maps/`** — populate with **`compose --profile download-assets`**; **`BIOHAZARD_START_MAP`** defaults to **`cs_estate`** (stock) so you can boot before syncing HL2GO / GameBanana packs. Pack **`.amxx`** plugins are compiled in the image from **`extra-assets/.../scripting/`** — expand **`extra-assets/`** for vendor models/sounds.
 
 The profile merges **`plugins-biohazard.ini`**, **`server-biohazard.cfg`**, and uses **`docker-compose.yml`** **`entrypoint`** (**`cs16-merge-game-assets-entrypoint.sh`**) ahead of **`hlds_run`** so **`./data/cs16-game-assets`** is layered into **`cstrike/`** each boot.
 
 ### 1. Biohazard AMXX plugin (included)
 
-The image **bakes a compiled `biohazard.amxx`** from **`image/zombiemod/extra-plugins/`** (patched in-tree **`biohazard.sma`** under **`image/zombiemod/extra-assets/.../scripting/`** for NVG / compatibility; see **§2 below** to rebuild after editing the source). For the **full Biohazard public pack** (models, sounds, **zombie classes**, etc.), obtain **Biohazard v2.00 Beta 3b** from the official thread and merge assets into **`image/zombiemod/extra-assets/`** (see **`image/zombiemod/extra-assets/README.txt`**).
+The image **compiles every pack `.sma`** under **`image/zombiemod/extra-assets/addons/amxmodx/scripting/`** in stage **`amxx-build`** (patched **`biohazard.sma`**, **lasermine**, grenades, etc.) and copies the resulting **`.amxx`** into the final image — **no plugin binaries are committed** (see **`.gitignore`**). For the **full Biohazard public pack** (models, sounds, **zombie classes**, etc.), obtain **Biohazard v2.00 Beta 3b** from the official thread and merge assets into **`image/zombiemod/extra-assets/`** (see **`image/zombiemod/extra-assets/README.txt`**).
 
 - [Biohazard v2.00 Beta 3b (Zombie Mod) — AlliedModders](https://forums.alliedmods.net/showthread.php?t=68523)
 
@@ -248,9 +248,7 @@ The image **bakes a compiled `biohazard.amxx`** from **`image/zombiemod/extra-pl
 1. Extract the pack on your PC and merge **`models/`**, **`sound/`**, **`sprites/`**, extra **`addons/amxmodx/`** files you need into **`image/zombiemod/extra-assets/`** so its top-level folders match **`cstrike/`**.
 2. Rebuild: **`docker compose build`** and **`docker compose --profile biohazard up -d --force-recreate`**.
 
-**Replacing the main plugin:** drop your own **`biohazard.amxx`** into **`image/zombiemod/extra-plugins/`** if you use an unmodified vendor binary (you would lose the in-repo NVG tweak unless you apply the same patch).
-
-### 2. Compiling `biohazard.sma` locally
+### 2. Compiling plugins locally (optional)
 
 The canonical sources in this repo are **`image/zombiemod/extra-assets/addons/amxmodx/scripting/biohazard.sma`** and **`…/scripting/biohazard.cfg`** (included via **`#tryinclude "biohazard.cfg"`** — the **`.cfg`** must sit next to the **`.sma`** when you compile). Use **AMX Mod X 1.9.x** to match the server image (see **`AMXX_BASE_URL` / `AMXX_CSTRIKE_URL`** in **`.env.example`** and the Dockerfile — same Counter-Strike add-on tarball the runtime needs for **`cstrike` / `csx` includes).
 
@@ -271,7 +269,7 @@ The canonical sources in this repo are **`image/zombiemod/extra-assets/addons/am
    ./amxxpc biohazard.sma
    ```
 
-5. The output is **`biohazard.amxx`** in that directory. Copy it to **`image/zombiemod/extra-plugins/biohazard.amxx`**, then rebuild the game image (**`docker compose build`**) so the new binary is baked into **`addons/amxmodx/plugins/`**.
+5. The output is **`biohazard.amxx`** in that directory. Normally you only **`docker compose build`** — stage **`amxx-build`** recompiles all pack **`.sma`** automatically.
 
 **On Windows:** use the **Windows** AMXX base package from the same release, open **`compile.exe`** or run **`amxxpc.exe`** from the scripting folder with **`biohazard.sma`** and the same **`biohazard.cfg`** / **`data/lang/biohazard.txt`** layout under your local AMXX tree.
 
@@ -581,7 +579,7 @@ Bump pins in **`.env`** when you rebuild: **`REHLDS_BUILD`**, **`REGAMEDLL_VERSI
 
 - **`zm_*` / `zb_*` maps wrong BSP / missing / crash:** Payload URLs must yield archives/BSP bytes (curl `-L`). Run **`compose --profile download-assets`**; fix **`image/game-assets/map-download-urls.manifest.txt`**, add **`.bsp`** via **`image/custom-maps/`** or **`./data/cs16-game-assets/maps/`**.
 
-- **Biohazard / infection errors or pink models:** Merge the official pack into **`image/zombiemod/extra-assets/`** (not only **`biohazard.amxx`**) and **`docker compose build`**.
+- **Biohazard / infection errors or pink models:** Merge the official pack into **`image/zombiemod/extra-assets/`** (models/sounds/configs, not only the plugin source) and **`docker compose build`**.
 
 - **FastDL mismatches HLDS extras:** Restart **`fastdl`** after syncing **`./data/cs16-game-assets/`**; **`docker compose build cs16 fastdl`** when **`GAME_IMAGE`** blobs or **`docker/fastdl`** scripts change (**BuildKit** needed for **`RUN --mount`**).
 
