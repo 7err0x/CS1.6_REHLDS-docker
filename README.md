@@ -273,6 +273,35 @@ The canonical sources in this repo are **`image/zombiemod/extra-assets/addons/am
 
 **On Windows:** use the **Windows** AMXX base package from the same release, open **`compile.exe`** or run **`amxxpc.exe`** from the scripting folder with **`biohazard.sma`** and the same **`biohazard.cfg`** / **`data/lang/biohazard.txt`** layout under your local AMXX tree.
 
+#### Docker build cache (`.sma` vs `docker/amxx-compile-all.sh`)
+
+The image has three stages: **`amxx-build`** (runs **`docker/amxx-compile-all.sh`**), **`hlds-base`**, **`cs16`**. Docker reuses a cached layer until a file used in that layer changes.
+
+| You changed | Usually enough |
+|-------------|----------------|
+| Any **`image/zombiemod/extra-assets/.../scripting/*.sma`**, **`*.cfg`**, or **`include/`** | **`docker compose build cs16-biohazard`** (or **`cs16`**) — invalidates **`amxx-build`** from the **`COPY`** of sources onward |
+| **`docker/amxx-compile-all.sh`** only (plugin list, compile order) | **Must** bust **`amxx-build`** cache — a normal build often **skips** the compile step because the **`.sma` `COPY` checksums are unchanged** |
+| **`Dockerfile`** steps in **`cs16`** only (mapcycles, configs, assets) | **`docker compose build`** — **`hlds-base`** / **`amxx-build`** stay cached if untouched |
+
+**Force `amxx-build` to run again** (after editing **`amxx-compile-all.sh`**):
+
+```bash
+docker buildx build \
+  --file Dockerfile \
+  --target cs16 \
+  --no-cache-filter amxx-build \
+  --no-cache-filter cs16 \
+  --tag cs16-respawn:latest \
+  --load \
+  .
+docker compose build cs16-biohazard
+docker compose --profile biohazard up -d --force-recreate cs16-biohazard
+```
+
+(`docker compose build --no-cache` rebuilds **every** stage including slow **SteamCMD** — avoid unless you need a full clean build.)
+
+Use that when you changed **`cs16`** layers (mapcycles, **`extra-assets`** merge, ReUnion pins) but **not** when you changed **`amxx-compile-all.sh`** or **`.sma`** sources.
+
 ### 3. Start the Biohazard server
 
 ```bash
