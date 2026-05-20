@@ -3,13 +3,14 @@
 set -euo pipefail
 
 CSTRIKE="${CSTRIKE_ROOT:-/opt/steam/hlds/cstrike}"
+WRITABLE="${CS16_WRITABLE_ROOT:-/opt/steam/hlds/cstrike-writable}"
 SRC="${CS16_GAME_ASSETS_MOUNT:-/mnt/cs16-game-assets}"
 
 if [[ ! -d "$SRC" ]]; then
 	exit 0
 fi
 
-mkdir -p "$CSTRIKE/maps" "$CSTRIKE/sound" "$CSTRIKE/models" "$CSTRIKE/sprites"
+mkdir -p "$CSTRIKE/maps" "$CSTRIKE/sound" "$CSTRIKE/models" "$CSTRIKE/sprites" "$WRITABLE/wads"
 
 if [[ -d "$SRC/maps" ]]; then
 	while IFS= read -r -d '' f; do
@@ -32,12 +33,13 @@ if [[ -d "$SRC/sprites" ]]; then
 	cp -af "$SRC/sprites/." "$CSTRIKE/sprites/"
 fi
 
+# WADs cannot be written under read_only cstrike-base — stage for cs16-assemble-cstrike.sh.
 if [[ -d "$SRC/wads" ]]; then
 	while IFS= read -r -d '' w; do
-		cp -af "$w" "$CSTRIKE/"
+		cp -af "$w" "$WRITABLE/wads/"
 	done < <(find "$SRC/wads" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 fi
 
 while IFS= read -r -d '' w; do
-	cp -af "$w" "$CSTRIKE/"
+	cp -af "$w" "$WRITABLE/wads/"
 done < <(find "$SRC" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)

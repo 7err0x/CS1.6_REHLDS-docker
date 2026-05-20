@@ -1,0 +1,14 @@
+# Host logrotate for bind-mounted HLDS logs (./data/cs16-logs).
+# Install: sudo cp docker/logrotate/cs16-hlds.logrotate /etc/logrotate.d/cs16-hlds
+# Paths must match your install directory.
+
+/home/*/Games/cs16docker/data/cs16-logs/*.log
+/home/*/Games/cs16docker/data/cs16-logs/**/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

@@ -507,10 +507,61 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 
 ---
 
+## Security and performance
+
+Hardening is applied in **`docker-compose.yml`** (game + FastDL). Summary of what is enabled and what you should still do on the host.
+
+### Docker hardening (game containers)
+
+| Measure | Detail |
+|--------|--------|
+| **`init: true`** | Reaps zombie processes from HLDS. |
+| **`security_opt: no-new-privileges`** | Blocks privilege escalation via setuid binaries. |
+| **`cap_drop: ALL`** plus **`cap_add: DAC_OVERRIDE, CHOWN, FOWNER`** | Drops most caps; a small set is required so the entrypoint can seed volumes and assemble **`cstrike-runtime`** (without **`DAC_OVERRIDE`**, even UID 0 cannot write into **`steam`**-owned dirs). |
+| **`read_only: true`** | Root filesystem is read-only; writes go to named volumes / bind mounts only. The baked mod tree lives in **`cstrike-base`**; HLDS still uses **`-game cstrike`** on volume **`cs16_cstrike_runtime`**, which symlinks most paths from **`cstrike-base`** and **copies** **`.wad`** files into the volume root (symlinks for extra wads on read-only paths fail). |
+| **Writable paths** | Named volumes **`cs16_maps`**, **`cs16_sound`**, **`cs16_models`**, **`cs16_sprites`**, **`cs16_cstrike_runtime`** (assembled **`cstrike/`**); bind mounts **`./data/cs16-logs`**, **`./data/cs16-state`** (runtime **`config.cfg`**, **`banned.cfg`**, **`listip.cfg`**, staged **`wads/`**). **`z`** suffix on bind mounts for **SELinux** (Fedora). First boot seeds from **`/usr/share/cs16/seed`**. |
+| **Entrypoint as root → `setpriv` as `steam`** | Seeds volumes, merges host assets, assembles **`cstrike/`**, then starts HLDS as **`steam`**. Compose sets **`user: "0:0"`** and **`SETUID`/`SETGID`** caps so **`setpriv`** works with **`no-new-privileges`**. |
+| **JSON log driver** | **`max-size: 10m`**, **`max-file: 5`** per container (Docker-managed stdout). |
+| **`-pingboost 2`** | Both **`cs16`** and **`cs16-biohazard`** use **`-pingboost 2`** (was **1**). If the server is unstable on your kernel, try **`1`** in **`docker-compose.yml`**. |
+
+### Biohazard outbound isolation
+
+**`cs16-biohazard`** attaches only to **`biohazard_isolated`** (`internal: true`). That network has **no default route to the internet**, so the container **cannot initiate outbound connections** (Steam master heartbeats, HTTP, etc.). **Published ports** still accept **incoming** UDP/TCP from the host (`BIOHAZARD_SERVER_PORT` → **27015**). LAN play and RCON from clients that already connected work; do **not** use this profile if the container must reach the public internet.
+
+**`cs16`** (respawn profile) stays on the default bridge and **can** make outbound connections.
+
+### FastDL `.bz2` sidecars
+
+The **`fastdl`** service runs **`docker/fastdl/bzip2-assets.sh`** at startup: for files larger than **`FASTDL_BZ2_MIN_KB`** (default **256**, env in compose), it creates **`file.ext.bz2`** next to the original. GoldSrc clients request **`maps/foo.bsp.bz2`** when available. Nginx serves both as static **`application/octet-stream`** (no on-the-fly compression).
+
+After changing assets under **`./data/cs16-game-assets/`**, **`docker compose restart fastdl`** to regenerate sidecars.
+
+### Host logs + rotation
+
+| Path | Role |
+|------|------|
+| **`./data/cs16-logs/`** | Bind-mounted **`cstrike/logs/`** (HLDS **`+log on`**). |
+| **`docker/logrotate/cs16-hlds.logrotate`** | Example **logrotate** stanza — edit the path, install to **`/etc/logrotate.d/`** on the host. |
+| **Docker logging** | Container stdout/stderr rotated by Docker (see table above). |
+
+### Operational security (your responsibility)
+
+- Set strong **`RCON_PASSWORD`** / **`BIOHAZARD_RCON_PASSWORD`** in **`.env`** (never commit **`.env`**).
+- Optional **`sv_password`** in **`cstrike/config/server*.cfg`** for private games.
+- Restrict host firewall to game (+ FastDL) ports; do not expose FastDL to the internet unless needed.
+- Tune **`reunion.cfg`** (**`IDClientsLimit`**, **`cid_*`**) if you see connection abuse.
+- **`secure 0`** + ReUnion non-Steam IDs are intentional for mixed clients; this is **not** a VAC-secured public server.
+
+### ReHLDS / engine versions
+
+Bump pins in **`.env`** when you rebuild: **`REHLDS_BUILD`**, **`REGAMEDLL_VERSION`**, **`METAMOD_VERSION`**, **`REAPI_VERSION`** (see **`.env.example`**). Test after each bump.
+
+---
+
 ## Ports and security
 
 - **`SERVER_PORT`** (default **27016** on the host) maps to **27015/tcp** and **27015/udp** in the container (override in **`.env`**).
-- **Change `RCON_PASSWORD`** before exposing the host to the internet; use a firewall and only open what you need.
+- See **[Security and performance](#security-and-performance)** for container hardening, Biohazard egress blocking, FastDL **`.bz2`**, and logs.
 - **VAC is off** (`secure 0` in **`liblist.gam`** and **`cstrike/config/server.cfg`**) so **Steam and non‑Steam** clients can connect with ReUnion; the server is **not** VAC‑secured.
 
 ---
