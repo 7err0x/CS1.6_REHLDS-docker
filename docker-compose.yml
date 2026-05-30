@@ -1,36 +1,13 @@
+# Base image entrypoint ends with +map de_dust2; that map reloads after Metamod/AMXX init and overrides +map in command.
 # HLDS merges ./data/cs16-game-assets at start (`cs16-merge-game-assets-entrypoint.sh`).
 x-cs16-merge-entrypoint: &cs16_merge_entrypoint
   - "/usr/local/sbin/cs16-merge-game-assets-entrypoint.sh"
 
-x-cs16-hardening: &cs16_hardening
-  init: true
-  security_opt:
-    - no-new-privileges:true
-  cap_drop:
-    - ALL
-  # Required with cap_drop: root cannot write steam-owned volume roots without DAC_OVERRIDE.
-  cap_add:
-    - DAC_OVERRIDE
-    - CHOWN
-    - FOWNER
-    # Drop from root entrypoint to steam after setup (no setuid with no-new-privileges).
-    - SETUID
-    - SETGID
-  read_only: true
-  tmpfs:
-    - /tmp:size=64M,mode=1777
-  logging:
-    driver: json-file
-    options:
-      max-size: "10m"
-      max-file: "5"
-
 x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "./hlds_run"
   - "-timeout 3"
-  - "-pingboost 2"
-  - "-game"
-  - "cstrike"
+  - "-pingboost 1"
+  - "-game cstrike"
   - "+maxplayers"
   - "${MAX_PLAYERS:-16}"
   - "+rcon_password"
@@ -45,9 +22,8 @@ x-cs16-respawn-cmd: &cs16_respawn_cmd
 x-cs16-biohazard-cmd: &cs16_biohazard_cmd
   - "./hlds_run"
   - "-timeout 3"
-  - "-pingboost 2"
-  - "-game"
-  - "cstrike"
+  - "-pingboost 1"
+  - "-game cstrike"
   - "+exec"
   - "config/gamemode-biohazard.cfg"
   - "+maxplayers"
@@ -73,7 +49,6 @@ services:
       - ./data/cs16-game-assets:/out
 
   cs16:
-    <<: *cs16_hardening
     entrypoint: *cs16_merge_entrypoint
     profiles:
       - respawn
@@ -95,29 +70,16 @@ services:
     restart: unless-stopped
     platform: linux/amd64
     working_dir: /opt/steam/hlds
-    user: "0:0"
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
     volumes:
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
-      - ./cstrike/amxmodx/users.ini:/mnt/cs16-overrides/amxmodx/users.ini:ro
-      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
-      - ./data/cs16-logs:/opt/steam/hlds/cstrike/logs:z
-      - ./data/cs16-state:/opt/steam/hlds/cstrike-writable:z
-      - ./data/cs16-state/config.cfg:/opt/steam/hlds/cstrike/config.cfg:z
-      - ./data/cs16-state/banned.cfg:/opt/steam/hlds/cstrike/banned.cfg:z
-      - ./data/cs16-state/listip.cfg:/opt/steam/hlds/cstrike/listip.cfg:z
-      - cs16_maps:/opt/steam/hlds/cstrike/maps
-      - cs16_sound:/opt/steam/hlds/cstrike/sound
-      - cs16_models:/opt/steam/hlds/cstrike/models
-      - cs16_sprites:/opt/steam/hlds/cstrike/sprites
-      - cs16_cstrike_runtime:/opt/steam/hlds/cstrike
-      - cs16_amx_configs:/opt/steam/hlds/cstrike/addons/amxmodx/configs
+      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
     command: *cs16_respawn_cmd
 
   cs16-biohazard:
-    <<: *cs16_hardening
     entrypoint: *cs16_merge_entrypoint
     profiles:
       - biohazard
@@ -139,36 +101,19 @@ services:
     restart: unless-stopped
     platform: linux/amd64
     working_dir: /opt/steam/hlds
-    user: "0:0"
     ports:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
-    networks:
-      - biohazard_isolated
     volumes:
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
       - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
       - ./cstrike/config/server-biohazard.cfg:/opt/steam/hlds/cstrike/config/server.cfg:ro
-      - ./cstrike/amxmodx/users.ini:/mnt/cs16-overrides/amxmodx/users.ini:ro
-      - ./image/zombiemod/plugins-biohazard.ini:/mnt/cs16-overrides/amxmodx/plugins.ini:ro
-      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
-      - ./data/cs16-logs:/opt/steam/hlds/cstrike/logs:z
-      - ./data/cs16-state:/opt/steam/hlds/cstrike-writable:z
-      - ./data/cs16-state/config.cfg:/opt/steam/hlds/cstrike/config.cfg:z
-      - ./data/cs16-state/banned.cfg:/opt/steam/hlds/cstrike/banned.cfg:z
-      - ./data/cs16-state/listip.cfg:/opt/steam/hlds/cstrike/listip.cfg:z
-      - cs16_maps:/opt/steam/hlds/cstrike/maps
-      - cs16_sound:/opt/steam/hlds/cstrike/sound
-      - cs16_models:/opt/steam/hlds/cstrike/models
-      - cs16_sprites:/opt/steam/hlds/cstrike/sprites
-      - cs16_cstrike_runtime:/opt/steam/hlds/cstrike
-      - cs16_amx_configs:/opt/steam/hlds/cstrike/addons/amxmodx/configs
+      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
+      - ./image/zombiemod/plugins-biohazard.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini:ro
     command: *cs16_biohazard_cmd
 
   fastdl:
-    init: true
-    security_opt:
-      - no-new-privileges:true
     profiles:
       - fastdl
     build:
@@ -184,19 +129,3 @@ services:
       - "${FASTDL_HTTP_PORT:-8080}:80/tcp"
     volumes:
       - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-    environment:
-      FASTDL_BZ2_MIN_KB: ${FASTDL_BZ2_MIN_KB:-256}
-
-networks:
-  # No default route to the internet — blocks outbound from the Biohazard container.
-  # Published ports still accept incoming game traffic from the host.
-  biohazard_isolated:
-  #  internal: true
-
-volumes:
-  cs16_maps:
-  cs16_sound:
-  cs16_models:
-  cs16_sprites:
-  cs16_cstrike_runtime:
-  cs16_amx_configs:

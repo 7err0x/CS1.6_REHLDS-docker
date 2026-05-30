@@ -140,24 +140,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY docker/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets.sh
 COPY docker/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
-COPY docker/cs16-runtime-setup.sh /usr/local/sbin/cs16-runtime-setup.sh
-COPY docker/cs16-assemble-cstrike.sh /usr/local/sbin/cs16-assemble-cstrike.sh
-COPY docker/cs16-apply-overrides.sh /usr/local/sbin/cs16-apply-overrides.sh
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends util-linux \
-    && rm -rf /var/lib/apt/lists/* \
-    && chmod +x /usr/local/sbin/cs16-merge-game-assets.sh \
-        /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh \
-        /usr/local/sbin/cs16-runtime-setup.sh \
-        /usr/local/sbin/cs16-assemble-cstrike.sh \
-        /usr/local/sbin/cs16-apply-overrides.sh \
-    && mkdir -p /opt/steam/hlds/cstrike-writable/wads /usr/share/cs16/seed/wads \
-    && chmod 0777 /opt/steam/hlds/cstrike-writable /opt/steam/hlds/cstrike-writable/wads \
-    && chown steam:steam /usr/local/sbin/cs16-merge-game-assets.sh \
-        /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh \
-        /usr/local/sbin/cs16-runtime-setup.sh \
-        /usr/local/sbin/cs16-assemble-cstrike.sh \
-        /usr/local/sbin/cs16-apply-overrides.sh
+RUN chmod +x /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh \
+    && chown steam:steam /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
 
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
@@ -233,21 +217,6 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     /opt/steam/hlds/cstrike/reunion.cfg /opt/steam/hlds/cstrike/liblist.gam \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
-
-# Seed tree for read_only root + named volumes (runtime-setup copies on first start).
-RUN for d in maps sound models sprites; do \
-      if [[ -d "/opt/steam/hlds/cstrike/$d" ]]; then \
-        mkdir -p "/usr/share/cs16/seed/$d" \
-        && cp -a "/opt/steam/hlds/cstrike/$d/." "/usr/share/cs16/seed/$d/"; \
-      fi; \
-    done \
-    && find /opt/steam/hlds/cstrike -maxdepth 1 -type f \( -iname '*.wad' \) -exec cp -t /usr/share/cs16/seed/wads {} + \
-    && chown -R steam:steam /usr/share/cs16/seed
-
-# Live game dir is a writable volume at runtime; keep the baked tree on the read-only image.
-RUN mv /opt/steam/hlds/cstrike /opt/steam/hlds/cstrike-base \
-    && mkdir -p /opt/steam/hlds/cstrike \
-    && chown steam:steam /opt/steam/hlds/cstrike-base /opt/steam/hlds/cstrike
 
 USER steam
 WORKDIR /opt/steam/hlds

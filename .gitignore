@@ -6,10 +6,3 @@
 # Live-downloaded BSPs/audio/WAD overlays (see data/cs16-game-assets/*/ .gitkeep)
 data/cs16-game-assets/**
 !data/cs16-game-assets/README.txt
-data/cs16-logs/**
-!data/cs16-logs/.gitkeep
-data/cs16-state/wads/**
-!data/cs16-state/README.txt
-!data/cs16-state/config.cfg
-!data/cs16-state/banned.cfg
-!data/cs16-state/listip.cfg
