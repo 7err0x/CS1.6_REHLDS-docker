@@ -129,5 +129,7 @@ services:
     platform: linux/amd64
     ports:
       - "${FASTDL_HTTP_PORT:-8080}:80/tcp"
+    environment:
+      CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
       - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro

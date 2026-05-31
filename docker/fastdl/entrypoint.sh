@@ -27,4 +27,6 @@ for w in /mnt/cs16-game-assets/*.wad /mnt/cs16-game-assets/*.WAD; do
 	if [ -f "$w" ]; then cp -af "$w" "$html/"; fi
 done
 
+/usr/local/bin/compress-bz2.sh "$html"
+
 exec nginx -g 'daemon off;'

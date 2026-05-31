@@ -81,9 +81,10 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 | [`cstrike/config/gamemode-biohazard.cfg`](cstrike/config/gamemode-biohazard.cfg) | Boot **`+exec`**: **`mapcyclefile`** and **`mp_flashlight`**. |
 | [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg) | Mounted **as** **`config/server.cfg`** on **`cs16-biohazard`** — **`mp_forcerespawn 0`**, **`mapcycle.biohazard.txt`**, same VAC / comfort intent as the main **`server.cfg`**. |
 | [`cstrike/config/fastdl.cfg`](cstrike/config/fastdl.cfg) | Optional **HTTP FastDL**: uncomment **`sv_downloadurl`** so clients download maps / models / sounds over **HTTP** instead of the slow in-game channel (see **FastDL** below). |
-| [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | **Nginx**: at **startup** merges **`maps/`/`sound/`/`models/`/… copied from **`CS16_IMAGE_NAME`** during **image build**, then overlays **`./data/cs16-game-assets`** (mounted read-only). Rebuild **`fastdl`** after game image bumps; **`restart`** is enough after extra downloads landed on disk. See **[`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile)**. |
-| [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + BuildKit **`RUN --mount`** snapshot of **`GAME_IMAGE`** `cstrike/`, plus **`entrypoint.sh`** merging **`/mnt/cs16-game-assets`** at start (same host extras as **`cs16`** / **`cs16-biohazard`**). |
-| [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static files, **`gzip off`**, **`application/octet-stream`**. |
+| [`docker-compose.yml`](docker-compose.yml) **`fastdl`** (profile **`fastdl`**) | **Nginx**: at **startup** merges game image + **`./data/cs16-game-assets`**, then **`compress-bz2.sh`** writes **`.bz2`** sidecars (GoldSrc clients fetch **`file.ext.bz2`** when present). **`restart`** after new extras; **`build fastdl`** after game image changes. |
+| [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + **bzip2**, BuildKit snapshot of **`GAME_IMAGE`** `cstrike/`, **`compress-bz2.sh`** at build and via **`entrypoint.sh`**. |
+| [`docker/fastdl/compress-bz2.sh`](docker/fastdl/compress-bz2.sh) | **`bzip2 -9 -k`** sidecars for **`.bsp`**, **`.wad`**, **`.mdl`**, **`.wav`**, **`.spr`**, **`.tga`** ≥ **`CS16_FASTDL_BZ2_MIN_BYTES`** (default **4096**). Skips unchanged files if the original is not newer than **`.bz2`**. |
+| [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static **`.bz2`** and raw files, **`gzip off`**, **`application/octet-stream`**. |
 | [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`biohazard.amxx`**, **`lasermine.amxx`**, **`zp50_grenade_frost.amxx`** / **`zp50_grenade_fire.amxx`** (Bio ports of ZP grenades); **`nextmap`** / **`mapchooser`** commented. |
 
 **Download extras (`download-assets` profile):**
@@ -209,7 +210,7 @@ Without **FastDL**, GoldSrc clients pull custom files from the server over the *
 
 **Option A — FastDL image in this repo (Compose profile `fastdl`):**
 
-1. Build **game**, then **FastDL** (**`docker compose build cs16 fastdl`**). Changing **`GAME_IMAGE`** content or **`docker/fastdl/entrypoint.sh`** requires **`build fastdl`**. Adding files only under **`./data/cs16-game-assets/`** → **`restart`** (**`docker compose restart fastdl`**) usually enough — the nginx entrypoint overlays that mount each start.
+1. Build **game**, then **FastDL** (**`docker compose build cs16 fastdl`**). Changing **`GAME_IMAGE`** content or **`docker/fastdl/`** scripts requires **`build fastdl`**. Adding files under **`./data/cs16-game-assets/`** → **`restart fastdl`** (entrypoint re-merges and creates missing **`.bz2`** sidecars; first start after large map adds can take a minute while **bzip2** runs).
 2. Start FastDL: **`docker compose --profile fastdl up -d`** ( **`FASTDL_HTTP_PORT`**, default **8080** ).
 3. In **`cstrike/config/fastdl.cfg`**, uncomment **`sv_downloadurl`** with a **trailing slash** (LAN example: **`http://192.168.1.10:8080/`**).
 4. Restart game containers if you only changed **`fastdl.cfg`**: **`docker compose restart cs16`** (and **`cs16-biohazard`** if used).
@@ -218,7 +219,7 @@ Without **FastDL**, GoldSrc clients pull custom files from the server over the *
 
 **Reload config only:** edit **`fastdl.cfg`** then **`docker compose restart cs16`** (and **`cs16-biohazard`** if applicable); no image rebuild.
 
-**Optional speed-ups:** pre-compress large files as **`.bz2`** next to the originals (e.g. **`maps/foo.bsp.bz2`**); many clients will prefer the smaller download. Keep **`sv_allowdownload 1`** (already in **`fastdl.cfg`**) so the slow path still works as a fallback.
+**`.bz2` sidecars (automatic):** The **`fastdl`** image runs **`docker/fastdl/compress-bz2.sh`** at **build** and on each **container start**, creating **`maps/foo.bsp.bz2`** (etc.) next to originals. GoldSrc clients request the **`.bz2`** URL when it exists — much smaller than raw BSP/WAD. Originals stay on disk as fallback. Override minimum size with **`CS16_FASTDL_BZ2_MIN_BYTES`** on the **`fastdl`** service (Compose). Keep **`sv_allowdownload 1`** in **`fastdl.cfg`** so the in-game channel still works if HTTP misses a file.
 
 **Rebuild** after changing **`image/mapcycle*.txt`**, **`Dockerfile`**, or files under **`image/custom-maps/`**. **`image/game-assets/`** URL changes only require re-running **`download-assets`** (no image rebuild unless you change how **`download-game-assets`** is built):
 
