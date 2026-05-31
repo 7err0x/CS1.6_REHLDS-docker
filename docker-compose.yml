@@ -79,6 +79,8 @@ services:
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
       - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
     command: *cs16_respawn_cmd
+    networks:
+      - isolated
 
   cs16-biohazard:
     entrypoint: *cs16_merge_entrypoint
@@ -114,6 +116,8 @@ services:
       - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
       - ./image/zombiemod/plugins-biohazard.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini:ro
     command: *cs16_biohazard_cmd
+    networks:
+      - isolated
 
   fastdl:
     profiles:
@@ -133,3 +137,8 @@ services:
       CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
       - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+
+networks:
+  isolated:
+    name: cs16-internal-network
+    internal: true

@@ -564,6 +564,26 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 - **Change `RCON_PASSWORD`** before exposing the host to the internet; use a firewall and only open what you need.
 - **VAC is off** (`secure 0` in **`liblist.gam`** and **`cstrike/config/server.cfg`**) so **Steam and non‑Steam** clients can connect with ReUnion; the server is **not** VAC‑secured.
 
+### Biohazard egress lockdown (`cs16-biohazard`)
+
+The **biohazard** service uses an **internal** Docker network (**`cs16-biohazard-internal`**) so the container has **no default route to the internet**. **Published ports** (**`BIOHAZARD_SERVER_PORT`**, default **27017**) still accept **incoming** player and RCON traffic; **FastDL** is fetched by **clients** from the **`fastdl`** service, not by the game container.
+
+**Trade-offs:** Steam **master-server heartbeats** (server browser listing) and any **plugin-initiated outbound HTTP** are blocked. **Direct connect** (`connect host:port`) continues to work.
+
+Optional **host-level** stateful rules (defense in depth; allows **ESTABLISHED/RELATED** replies, drops **new** outbound from the container IP):
+
+```bash
+docker compose --profile biohazard up -d cs16-biohazard
+sudo ./docker/biohazard-egress-firewall.sh apply
+sudo ./docker/biohazard-egress-firewall.sh status
+# after container recreate (IP may change):
+sudo ./docker/biohazard-egress-firewall.sh remove
+sudo ./docker/biohazard-egress-firewall.sh apply
+sudo ./docker/biohazard-egress-firewall.sh remove   # tear down
+```
+
+Rules live in iptables chain **`CS16-BIOHAZARD-EGRESS`**, jumped from **`DOCKER-USER`**. Re-run **`apply`** whenever you **`--force-recreate`** the biohazard container (its IP changes).
+
 ---
 
 ## Troubleshooting
