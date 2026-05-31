@@ -75,6 +75,7 @@ services:
       - "${SERVER_PORT:-27016}:27015/udp"
     volumes:
       - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+      - ./cstrike/server.cfg:/opt/steam/hlds/cstrike/server.cfg:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
       - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
     command: *cs16_respawn_cmd
@@ -106,6 +107,7 @@ services:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
     volumes:
       - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+      - ./cstrike/server.cfg:/opt/steam/hlds/cstrike/server.cfg:ro
       - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
       - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
       - ./cstrike/config/server-biohazard.cfg:/opt/steam/hlds/cstrike/config/server.cfg:ro
