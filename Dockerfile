@@ -52,15 +52,15 @@ RUN chmod +x /usr/local/bin/amxx-compile-all.sh \
 # -----------------------------------------------------------------------------
 FROM debian:bookworm-slim AS hlds-base
 
-ARG REHLDS_BUILD=3.13.0.788
-ARG METAMOD_VERSION=1.3.0.138
-ARG REGAMEDLL_VERSION=5.26.0.668
-ARG REAPI_VERSION=5.24.0.300
+ARG REHLDS_BUILD=3.15.0.896
+ARG METAMOD_VERSION=1.3.0.149
+ARG REGAMEDLL_VERSION=5.30.0.814
+ARG REAPI_VERSION=5.29.0.358
 ARG STEAMCMD_URL=https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz
-ARG REHLDS_URL="https://github.com/dreamstalker/rehlds/releases/download/${REHLDS_BUILD}/rehlds-bin-${REHLDS_BUILD}.zip"
-ARG METAMOD_URL="https://github.com/theAsmodai/metamod-r/releases/download/${METAMOD_VERSION}/metamod-bin-${METAMOD_VERSION}.zip"
-ARG REGAMEDLL_URL="https://github.com/s1lentq/ReGameDLL_CS/releases/download/${REGAMEDLL_VERSION}/regamedll-bin-${REGAMEDLL_VERSION}.zip"
-ARG REAPI_URL="https://github.com/s1lentq/reapi/releases/download/${REAPI_VERSION}/reapi-bin-${REAPI_VERSION}.zip"
+ARG REHLDS_URL="https://github.com/rehlds/ReHLDS/releases/download/${REHLDS_BUILD}/rehlds-bin-${REHLDS_BUILD}.zip"
+ARG METAMOD_URL="https://github.com/rehlds/Metamod-R/releases/download/${METAMOD_VERSION}/metamod-bin-${METAMOD_VERSION}.zip"
+ARG REGAMEDLL_URL="https://github.com/rehlds/ReGameDLL_CS/releases/download/${REGAMEDLL_VERSION}/regamedll-bin-${REGAMEDLL_VERSION}.zip"
+ARG REAPI_URL="https://github.com/rehlds/ReAPI/releases/download/${REAPI_VERSION}/reapi-bin-${REAPI_VERSION}.zip"
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8

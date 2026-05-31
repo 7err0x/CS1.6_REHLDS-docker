@@ -1,6 +1,6 @@
 # Counter-Strike 1.6 in Docker (respawn / deathmatch mode)
 
-This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage Dockerfile** in this repo (no dependency on a pre-built **`ghcr.io/blsalin/rehlds-cstrike`** image). Stage **`hlds-base`** vendors the [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) recipe ([upstream Dockerfile](https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile)): **SteamCMD** HLDS (`steam_legacy`), **ReHLDS**, **Metamod-r**, **ReGameDLL**, **ReAPI**. Stage **`amxx-build`** compiles **all Biohazard-pack `.sma`** sources (incl. **Lasermine** with Biohazard patches) against **AMXX 1.9**. Stage **`cs16`** installs **AMXX 1.9** (not upstream’s 1.8.2, which **segfaults** here), **[ReUnion](https://github.com/rehlds/ReUnion)**, Biohazard assets, and **Metamod** order **ReUnion → AMXX**. **ReGameDLL** enables **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`secure 0`** / **`reunion.cfg`** support Steam + typical non‑Steam clients. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (manifest + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**).
+This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage Dockerfile** in this repo (no dependency on a pre-built **`ghcr.io/blsalin/rehlds-cstrike`** image). Stage **`hlds-base`** vendors the [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) recipe ([upstream Dockerfile](https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile)): **SteamCMD** HLDS (`steam_legacy`), then binaries from the official **[rehlds](https://github.com/rehlds)** org — **[ReHLDS](https://github.com/rehlds/ReHLDS)**, **[Metamod-R](https://github.com/rehlds/Metamod-R)**, **[ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS)**, **[ReAPI](https://github.com/rehlds/ReAPI)** (pinned release tags in [`Dockerfile`](Dockerfile) / **`.env.example`**; see [ReHLDS stack versions](#rehlds-stack-versions)). Stage **`amxx-build`** compiles **all Biohazard-pack `.sma`** sources (incl. **Lasermine** with Biohazard patches) against **AMXX 1.9**. Stage **`cs16`** installs **AMXX 1.9** (not upstream’s 1.8.2, which **segfaults** here), **[ReUnion](https://github.com/rehlds/ReUnion)**, Biohazard assets, and **Metamod** order **ReUnion → AMXX**. **ReGameDLL** enables **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`secure 0`** / **`reunion.cfg`** support Steam + typical non‑Steam clients. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (manifest + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**). **`hlds_run -pingboost 2`** is set in **`docker-compose.yml`**.
 
 **Requirements:** Docker with Compose, **x86_64** host (or Docker Desktop with **linux/amd64** emulation). **Steam and non‑Steam** clients can join when ReUnion + `secure 0` are in effect (see **`reunion.cfg`** baked into the image).
 
@@ -21,7 +21,7 @@ This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage D
    docker compose up -d
    ```
 
-   Bump engine versions via **`.env`** / build args: **`REHLDS_BUILD`**, **`REGAMEDLL_VERSION`**, **`METAMOD_VERSION`**, **`REAPI_VERSION`** (see **`.env.example`**). Recipe: **`lib/hlds.install`**, stage **`hlds-base`** in [`Dockerfile`](Dockerfile).
+   Bump engine versions via **`.env`** / Compose build args (see [ReHLDS stack versions](#rehlds-stack-versions) and **`.env.example`**). Recipe: **`lib/hlds.install`**, stage **`hlds-base`** in [`Dockerfile`](Dockerfile).
 
 3. In CS 1.6, open the console (`~`) and connect (use **`SERVER_PORT`** from **`.env`**; the default publish mapping is **27016** on the host → **27015** in the container):
 
@@ -34,6 +34,29 @@ This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage D
    ```bash
    docker compose logs -f
    ```
+
+---
+
+## ReHLDS stack versions
+
+The **`hlds-base`** stage downloads **Linux binary releases** from the official **[rehlds](https://github.com/rehlds)** GitHub organization (not legacy `dreamstalker` / `s1lentq` / `theAsmodai` URLs). Defaults are pinned in [`Dockerfile`](Dockerfile) and overridable via **`.env`** / **`docker-compose.yml`** build args.
+
+| Build arg | Default (latest stable at pin time) | Release |
+|-----------|-------------------------------------|---------|
+| **`REHLDS_BUILD`** | **`3.15.0.896`** | [ReHLDS](https://github.com/rehlds/ReHLDS/releases/tag/3.15.0.896) |
+| **`METAMOD_VERSION`** | **`1.3.0.149`** | [Metamod-R](https://github.com/rehlds/Metamod-R/releases/tag/1.3.0.149) |
+| **`REGAMEDLL_VERSION`** | **`5.30.0.814`** | [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS/releases/tag/5.30.0.814) |
+| **`REAPI_VERSION`** | **`5.29.0.358`** | [ReAPI](https://github.com/rehlds/ReAPI/releases/tag/5.29.0.358) |
+| **`REUNION_VERSION`** | **`0.2.0.25`** | [ReUnion](https://github.com/rehlds/ReUnion/releases/tag/0.2.0.25) |
+
+To upgrade after new [rehlds releases](https://github.com/rehlds), set the tags in **`.env`**, then rebuild:
+
+```bash
+docker compose build cs16
+docker compose --profile biohazard up -d --force-recreate
+```
+
+**ReHLDS 3.15+** includes fixes for **executable stack** / glibc issues on newer hosts (see [ReHLDS #1157](https://github.com/rehlds/ReHLDS/pull/1157)) — you may no longer need **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** in Compose.
 
 ---
 
