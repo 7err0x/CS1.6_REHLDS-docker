@@ -172,6 +172,7 @@ COPY --from=amxx-build /amxx-kit/addons/amxmodx/scripting/*.amxx \
     /opt/steam/hlds/cstrike/addons/amxmodx/plugins/
 
 COPY image/zombiemod/plugins-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins-biohazard.ini
+COPY image/zombiemod/maps-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps-biohazard.ini
 
 COPY image/zombiemod/extra-assets/ /tmp/zombie-assets/
 RUN bash -c 'shopt -s nullglob; for p in /tmp/zombie-assets/*; do \
@@ -201,6 +202,7 @@ COPY cstrike/reunion.cfg /opt/steam/hlds/cstrike/reunion.cfg
 
 ARG CS16_SERVER_CONFIG=server.cfg
 ARG CS16_PLUGINS_INI=
+ARG CS16_MAPS_INI=
 RUN if [[ "$CS16_SERVER_CONFIG" != "server.cfg" ]]; then \
       cp "/opt/steam/hlds/cstrike/config/${CS16_SERVER_CONFIG}" \
          /opt/steam/hlds/cstrike/config/server.cfg; \
@@ -209,6 +211,11 @@ RUN if [[ "$CS16_SERVER_CONFIG" != "server.cfg" ]]; then \
       && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_PLUGINS_INI}" ]]; then \
       cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_PLUGINS_INI}" \
          /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini; \
+    fi \
+    && if [[ -n "$CS16_MAPS_INI" \
+      && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_MAPS_INI}" ]]; then \
+      cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_MAPS_INI}" \
+         /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps.ini; \
     fi
 
 RUN sed -i 's/^secure "1"/secure "0"/' /opt/steam/hlds/cstrike/liblist.gam \

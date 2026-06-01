@@ -182,6 +182,7 @@ services:
         <<: *cs16_build_args
         CS16_SERVER_CONFIG: server-biohazard.cfg
         CS16_PLUGINS_INI: plugins-biohazard.ini
+        CS16_MAPS_INI: maps-biohazard.ini
     image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
     container_name: cs16-biohazard0
     ports:
