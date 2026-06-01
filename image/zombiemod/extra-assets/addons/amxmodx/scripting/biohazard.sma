@@ -2800,6 +2800,15 @@ stock equipweapon(id, weapon)
 		static i
 		for(i = 0; i < sizeof g_grenades; i++) if(!user_has_weapon(id, get_weaponid(g_grenades[i])))
 			bacon_give_weapon(id, g_grenades[i])
+
+		if(cvar_exists("bh_flare_amount") && user_has_weapon(id, CSW_SMOKEGRENADE))
+		{
+			static flare_amt
+			flare_amt = get_cvar_num("bh_flare_amount")
+
+			if(flare_amt > 0)
+				cs_set_user_bpammo(id, CSW_SMOKEGRENADE, flare_amt)
+		}
 	}
 }
 
