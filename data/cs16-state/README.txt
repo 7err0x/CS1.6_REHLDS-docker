@@ -1,2 +1,2 @@
-Legacy folder — runtime state is stored in Docker named volumes (cs16-maps, cs16-logs, etc.).
-Nothing here is mounted by default. Safe to delete local copies under data/cs16-state/.
+Legacy host folder — runtime state lives in the Docker volume cs16-state (subpaths for logs, maps, bans, etc.).
+Nothing here is mounted by default.

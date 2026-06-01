@@ -139,12 +139,10 @@ FROM hlds-base AS cs16
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-COPY docker/cs16-hlds-meta-init.sh /usr/local/sbin/cs16-hlds-meta-init.sh
-COPY docker/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets.sh
-COPY docker/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
-COPY docker/cs16-runtime-setup.sh /usr/local/sbin/cs16-runtime-setup.sh
-RUN chmod +x /usr/local/sbin/cs16-hlds-meta-init.sh /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-runtime-setup.sh \
-    && chown steam:steam /usr/local/sbin/cs16-hlds-meta-init.sh /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-runtime-setup.sh
+COPY docker/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
+COPY docker/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
+RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh \
+    && chown steam:steam /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh
 
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
@@ -236,8 +234,18 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
 
-RUN mkdir -p /usr/local/share/cs16-seed/cstrike-full \
-    && cp -a /opt/steam/hlds/cstrike/. /usr/local/share/cs16-seed/cstrike-full/
+RUN mkdir -p /usr/local/share/cs16-seed \
+    && for d in maps sound models sprites; do \
+         if [[ -d "/opt/steam/hlds/cstrike/$d" ]]; then \
+           mkdir -p "/usr/local/share/cs16-seed/$d" \
+           && cp -a "/opt/steam/hlds/cstrike/$d/." "/usr/local/share/cs16-seed/$d/"; \
+         fi; \
+       done \
+    && if [[ -d /opt/steam/hlds/cstrike/addons/amxmodx/data ]]; then \
+         mkdir -p /usr/local/share/cs16-seed/amxx-data \
+         && cp -a /opt/steam/hlds/cstrike/addons/amxmodx/data/. /usr/local/share/cs16-seed/amxx-data/; \
+       fi \
+    && chown -R steam:steam /usr/local/share/cs16-seed
 
 USER steam
 WORKDIR /opt/steam/hlds

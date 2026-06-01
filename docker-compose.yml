@@ -1,8 +1,8 @@
-# HLDS merges optional community assets from the cs16-game-assets volume at start.
+# HLDS merges optional community assets from cs16-game-assets at start.
 # Configs are baked into the image (cstrike/ in repo → Dockerfile COPY).
-# Writable runtime state uses named Docker volumes only (no host bind mounts).
-x-cs16-merge-entrypoint: &cs16_merge_entrypoint
-  - "/usr/local/sbin/cs16-merge-game-assets-entrypoint.sh"
+# Writable runtime state: cs16-state volume (subpaths) + cs16-game-assets (read-only).
+x-cs16-entrypoint: &cs16_entrypoint
+  - "/usr/local/sbin/cs16-entrypoint.sh"
 
 x-cs16-security: &cs16_security
   init: true
@@ -15,39 +15,86 @@ x-cs16-security: &cs16_security
   tmpfs:
     - /tmp:mode=1777,size=64m
     - /run:mode=755,size=8m
+    - /opt/steam/.steam:mode=1777,size=64k
 
-x-cs16-meta-init: &cs16_meta_init
-  user: "0:0"
-  entrypoint: ["/usr/local/sbin/cs16-hlds-meta-init.sh"]
-  volumes:
-    - cs16-hlds-meta:/var/cs16/hlds-meta
-  restart: "no"
+x-cs16-build-common: &cs16_build_common
+  context: .
+  dockerfile: Dockerfile
+  target: cs16
+
+x-cs16-build-args: &cs16_build_args
+  REHLDS_BUILD: ${REHLDS_BUILD:-3.15.0.896}
+  METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.149}
+  REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.30.0.814}
+  REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
+  AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
+  AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
+  LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
+  REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
 
 x-cs16-runtime-volumes: &cs16_runtime_volumes
   - cs16-game-assets:/mnt/cs16-game-assets:ro
-  - cs16-logs:/opt/steam/hlds/cstrike/logs
   - type: volume
-    source: cs16-hlds-meta
+    source: cs16-state
     target: /opt/steam/hlds/cstrike/banned.cfg
     volume:
-      subpath: banned.cfg
+      subpath: hlds-meta/banned.cfg
   - type: volume
-    source: cs16-hlds-meta
+    source: cs16-state
     target: /opt/steam/hlds/cstrike/listip.cfg
     volume:
-      subpath: listip.cfg
+      subpath: hlds-meta/listip.cfg
   - type: volume
-    source: cs16-hlds-meta
+    source: cs16-state
     target: /opt/steam/hlds/cstrike/config.cfg
     volume:
-      subpath: config.cfg
-  - cs16-amxx-data:/opt/steam/hlds/cstrike/addons/amxmodx/data
-  - cs16-steam-home:/opt/steam/.steam
-  - cs16-maps:/opt/steam/hlds/cstrike/maps
-  - cs16-sound:/opt/steam/hlds/cstrike/sound
-  - cs16-models:/opt/steam/hlds/cstrike/models
-  - cs16-sprites:/opt/steam/hlds/cstrike/sprites
-  - cs16-wads:/opt/steam/hlds/cstrike/wads
+      subpath: hlds-meta/config.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/logs
+    volume:
+      subpath: logs
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/addons/amxmodx/data
+    volume:
+      subpath: amxx-data
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/maps
+    volume:
+      subpath: maps
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sound
+    volume:
+      subpath: sound
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/models
+    volume:
+      subpath: models
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sprites
+    volume:
+      subpath: sprites
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/wads
+    volume:
+      subpath: wads
+
+x-cs16-server-common: &cs16_server_common
+  <<: *cs16_security
+  entrypoint: *cs16_entrypoint
+  depends_on:
+    cs16-state-init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+  platform: linux/amd64
+  working_dir: /opt/steam/hlds
+  volumes: *cs16_runtime_volumes
 
 x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "./hlds_run"
@@ -84,19 +131,17 @@ x-cs16-biohazard-cmd: &cs16_biohazard_cmd
   - "${BIOHAZARD_START_MAP:-cs_estate}"
 
 services:
-  cs16-meta-init:
-    <<: *cs16_meta_init
+  cs16-state-init:
+    user: "0:0"
+    entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
+    volumes:
+      - cs16-state:/var/cs16/state
+    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
     profiles:
       - respawn
-    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
-    container_name: cs16-meta-init0
-
-  cs16-biohazard-meta-init:
-    <<: *cs16_meta_init
-    profiles:
       - biohazard
-    image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
-    container_name: cs16-biohazard-meta-init0
+    restart: "no"
+    container_name: cs16-state-init0
 
   download-game-assets:
     build:
@@ -109,73 +154,39 @@ services:
       - cs16-game-assets:/out
 
   cs16:
-    <<: *cs16_security
-    entrypoint: *cs16_merge_entrypoint
-    depends_on:
-      cs16-meta-init:
-        condition: service_completed_successfully
+    <<: *cs16_server_common
     profiles:
       - respawn
     build:
-      context: .
-      dockerfile: Dockerfile
-      target: cs16
+      <<: *cs16_build_common
       args:
-        REHLDS_BUILD: ${REHLDS_BUILD:-3.15.0.896}
-        METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.149}
-        REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.30.0.814}
-        REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
-        AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
-        AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
-        LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
-        REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
+        <<: *cs16_build_args
         CS16_SERVER_CONFIG: server.cfg
         CS16_PLUGINS_INI: ""
     image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
     container_name: cs16-respawn0
-    restart: unless-stopped
-    platform: linux/amd64
-    working_dir: /opt/steam/hlds
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
-    volumes: *cs16_runtime_volumes
     command: *cs16_respawn_cmd
     networks:
       - isolated
 
   cs16-biohazard:
-    <<: *cs16_security
-    entrypoint: *cs16_merge_entrypoint
-    depends_on:
-      cs16-biohazard-meta-init:
-        condition: service_completed_successfully
+    <<: *cs16_server_common
     profiles:
       - biohazard
     build:
-      context: .
-      dockerfile: Dockerfile
-      target: cs16
+      <<: *cs16_build_common
       args:
-        REHLDS_BUILD: ${REHLDS_BUILD:-3.15.0.896}
-        METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.149}
-        REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.30.0.814}
-        REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
-        AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
-        AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
-        LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
-        REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
+        <<: *cs16_build_args
         CS16_SERVER_CONFIG: server-biohazard.cfg
         CS16_PLUGINS_INI: plugins-biohazard.ini
     image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
     container_name: cs16-biohazard0
-    restart: unless-stopped
-    platform: linux/amd64
-    working_dir: /opt/steam/hlds
     ports:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
-    volumes: *cs16_runtime_volumes
     command: *cs16_biohazard_cmd
 ##    networks:
 ##      - isolated
@@ -206,12 +217,4 @@ networks:
 
 volumes:
   cs16-game-assets:
-  cs16-hlds-meta:
-  cs16-logs:
-  cs16-amxx-data:
-  cs16-steam-home:
-  cs16-maps:
-  cs16-sound:
-  cs16-models:
-  cs16-sprites:
-  cs16-wads:
+  cs16-state:
