@@ -40,11 +40,14 @@ new const SND_EXP[][64] =
 	"weapons/rocketfire1.wav"
 }
 
+// ZP 5.0.8 napalm burn screams (zombie_plague/zombie_burn*.wav).
 new const SND_BRN[][64] =
 {
-	"player/pl_pain7.wav",
-	"player/pl_burn1.wav",
-	"player/pl_burn2.wav"
+	"zombie_plague/zombie_burn3.wav",
+	"zombie_plague/zombie_burn4.wav",
+	"zombie_plague/zombie_burn5.wav",
+	"zombie_plague/zombie_burn6.wav",
+	"zombie_plague/zombie_burn7.wav"
 }
 
 new const MODEL_TRAIL[] = "sprites/laserbeam.spr"

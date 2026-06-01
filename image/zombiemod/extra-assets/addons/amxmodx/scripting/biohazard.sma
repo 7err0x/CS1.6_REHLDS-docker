@@ -72,6 +72,7 @@
 #define TASKID_NEWROUND	641
 #define TASKID_INITROUND 222
 #define TASKID_STARTROUND 153
+#define TASKID_AMBIENCE 817
 #define TASKID_BALANCETEAM 375
 #define TASKID_UPDATESCR 264
 #define TASKID_SPAWNDELAY 786
@@ -286,7 +287,8 @@ new g_maxplayers, g_spawncount, g_buyzone, g_botclient_pdata, g_sync_hpdisplay,
     g_class_wmodel[MAX_CLASSES+1][64], Float:g_class_data[MAX_CLASSES+1][MAX_DATA]
     
 new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cvar_autonvg, 
-    cvar_winsounds, cvar_roundstartsounds, cvar_weaponsmenu, cvar_lights, cvar_killbonus, cvar_enabled, 
+    cvar_winsounds, cvar_roundstartsounds, cvar_ambience, cvar_ambience_min, cvar_ambience_max, cvar_ambience_vol,
+    cvar_weaponsmenu, cvar_lights, cvar_killbonus, cvar_enabled, 
     cvar_gamedescription, cvar_botquota, cvar_maxzombies, cvar_flashbang, cvar_buytime,
     cvar_respawnaszombie, cvar_punishsuicide, cvar_infectmoney, cvar_showtruehealth,
     cvar_obeyarmor, cvar_impactexplode, cvar_caphealthdisplay, cvar_zombie_hpmulti,
@@ -315,6 +317,74 @@ stock bh_broadcast_sound(const snd[])
 	}
 }
 
+stock Float:bh_ambience_next_delay()
+{
+	new Float:min = get_pcvar_float(cvar_ambience_min)
+	new Float:max = get_pcvar_float(cvar_ambience_max)
+
+	if(min > max)
+	{
+		new Float:swap = min
+		min = max
+		max = swap
+	}
+
+	if(max < 1.0)
+		max = 1.0
+
+	new imin = floatround(min)
+	new imax = floatround(max)
+
+	if(imin < 1)
+		imin = 1
+
+	if(imax < imin)
+		imax = imin
+
+	return float(random_num(imin, imax))
+}
+
+stock bh_ambience_broadcast(const snd[])
+{
+	new Float:vol = get_pcvar_float(cvar_ambience_vol)
+
+	if(vol <= 0.0)
+		return
+
+	new i, pitch = random_num(94, 106)
+
+	for(i = 1; i <= g_maxplayers; i++)
+	{
+		if(!is_user_connected(i) || is_user_hltv(i))
+			continue
+
+		emit_sound(i, CHAN_VOICE, snd, vol, ATTN_NORM, 0, pitch)
+	}
+}
+
+stock bh_ambience_stop()
+{
+	remove_task(TASKID_AMBIENCE)
+}
+
+stock bh_ambience_schedule()
+{
+	if(!get_pcvar_num(cvar_ambience) || !g_gamestarted || g_roundended)
+		return
+
+	set_task(bh_ambience_next_delay(), "task_ambience_play", TASKID_AMBIENCE)
+}
+
+stock bh_ambience_start()
+{
+	bh_ambience_stop()
+
+	if(!get_pcvar_num(cvar_ambience))
+		return
+
+	bh_ambience_schedule()
+}
+
 public plugin_precache()
 {
 	register_plugin("Biohazard", VERSION, "cheap_suit")
@@ -335,6 +405,10 @@ public plugin_precache()
 	cvar_punishsuicide = register_cvar("bh_punishsuicide", "1")
 	cvar_winsounds = register_cvar("bh_winsounds", "1")
 	cvar_roundstartsounds = register_cvar("bh_roundstartsounds", "1")
+	cvar_ambience = register_cvar("bh_ambience", "1")
+	cvar_ambience_min = register_cvar("bh_ambience_min", "12.0")
+	cvar_ambience_max = register_cvar("bh_ambience_max", "28.0")
+	cvar_ambience_vol = register_cvar("bh_ambience_vol", "0.30")
 	cvar_autonvg = register_cvar("bh_autonvg", "1")
 	cvar_nvg_bubble = register_cvar("bh_nvg_bubble", "1")
 	cvar_nvg_rgb = register_cvar("bh_nvg_rgb", "020255030")
@@ -412,6 +486,9 @@ public plugin_precache()
 
 	for(i = 0; i < sizeof g_roundstart_sounds; i++)
 		precache_sound(g_roundstart_sounds[i])
+
+	for(i = 0; i < sizeof g_ambience_sounds; i++)
+		precache_sound(g_ambience_sounds[i])
 	
 	g_fwd_spawn = register_forward(FM_Spawn, "fwd_spawn")
 	
@@ -885,6 +962,7 @@ public logevent_round_end()
 	remove_task(TASKID_BALANCETEAM) 
 	remove_task(TASKID_INITROUND)
 	remove_task(TASKID_STARTROUND)
+	bh_ambience_stop()
 	
 	set_task(0.1, "task_balanceteam", TASKID_BALANCETEAM)
 }
@@ -894,6 +972,7 @@ public event_textmsg()
 	g_gamestarted = false 
 	g_roundstarted = false 
 	g_roundended = true
+	bh_ambience_stop()
 	
 	static seconds[5] 
 	read_data(3, seconds, 4)
@@ -1174,35 +1253,9 @@ public fwd_player_postthink(id)
 }
 
 public fwd_emitsound(id, channel, sample[], Float:volume, Float:attn, flag, pitch)
-{	
-	// Do not supersede items/nvg_* here: blocking those CHAN_ITEM emits breaks the client
-	// NVG toggle (including turning nightvision off as zombie) on many builds.
-
-	if(!is_user_connected(id) || !g_zombie[id])
-		return FMRES_IGNORED	
-
-	if(sample[8] == 'k' && sample[9] == 'n' && sample[10] == 'i')
-	{
-		if(sample[14] == 's' && sample[15] == 'l' && sample[16] == 'a')
-		{
-			emit_sound(id, channel, g_zombie_miss_sounds[_random(sizeof g_zombie_miss_sounds)], volume, attn, flag, pitch)
-			return FMRES_SUPERCEDE
-		}
-		else if(sample[14] == 'h' && sample[15] == 'i' && sample[16] == 't' || sample[14] == 's' && sample[15] == 't' && sample[16] == 'a')
-		{
-			if(sample[17] == 'w' && sample[18] == 'a' && sample[19] == 'l')
-				emit_sound(id, channel, g_zombie_miss_sounds[_random(sizeof g_zombie_miss_sounds)], volume, attn, flag, pitch)
-			else
-				emit_sound(id, channel, g_zombie_hit_sounds[_random(sizeof g_zombie_hit_sounds)], volume, attn, flag, pitch)
-			
-			return FMRES_SUPERCEDE
-		}
-	}			
-	else if(sample[7] == 'd' && (sample[8] == 'i' && sample[9] == 'e' || sample[12] == '6'))
-	{
-		emit_sound(id, channel, g_zombie_die_sounds[_random(sizeof g_zombie_die_sounds)], volume, attn, flag, pitch)
-		return FMRES_SUPERCEDE
-	}
+{
+	// Zombie knife/pain/die sounds: zp50_zombie_sounds.amxx (FM_EmitSound hook).
+	// Do not supersede items/nvg_* here — breaks NVG toggle on many builds.
 	return FMRES_IGNORED
 }
 
@@ -1903,7 +1956,17 @@ public task_startround()
 	if(get_pcvar_num(cvar_roundstartsounds))
 		bh_broadcast_sound(g_roundstart_sounds[_random(sizeof g_roundstart_sounds)])
 
+	bh_ambience_start()
 	ExecuteForward(g_fwd_gamestart, g_fwd_result)
+}
+
+public task_ambience_play()
+{
+	if(!get_pcvar_num(cvar_ambience) || !g_gamestarted || g_roundended)
+		return
+
+	bh_ambience_broadcast(g_ambience_sounds[_random(sizeof g_ambience_sounds)])
+	bh_ambience_schedule()
 }
 
 public task_balanceteam()

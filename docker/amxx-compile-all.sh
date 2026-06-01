@@ -15,6 +15,8 @@ PACK=(
 	bio_radar.sma
 	bio_smokeflare.sma
 	spawn_editor.sma
+	zp50_zombie_sounds.sma
+	zp50_ambience_sounds.sma
 	zp50_grenade_fire.sma
 	zp50_grenade_frost.sma
 )
