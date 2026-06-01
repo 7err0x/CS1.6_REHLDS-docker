@@ -90,6 +90,8 @@
 #define MODEL_CLASSNAME "player_model"
 #define IMPULSE_FLASHLIGHT 100
 
+#define write_coord_f(%1) engfunc(EngFunc_WriteCoord, %1)
+
 new const BIO_SND_NVG_ON[] = "items/nvg_on.wav"
 new const BIO_SND_NVG_OFF[] = "items/nvg_off.wav"
 
@@ -290,7 +292,8 @@ new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cva
     cvar_obeyarmor, cvar_impactexplode, cvar_caphealthdisplay, cvar_zombie_hpmulti,
     cvar_randomclass, cvar_zombiemulti, cvar_knockback, cvar_knockback_dist, cvar_ammo,
     cvar_knockback_duck, cvar_killreward, cvar_painshockfree, cvar_zombie_class,
-    cvar_shootobjects, cvar_pushpwr_weapon, cvar_pushpwr_zombie
+    cvar_shootobjects, cvar_pushpwr_weapon, cvar_pushpwr_zombie,
+    cvar_nvg_bubble, cvar_nvg_rgb, cvar_nvg_radius, cvar_nvg_decay, cvar_nvg_life
     
 new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_blockmodel[33], 
     bool:g_showmenu[33], bool:g_menufailsafe[33], bool:g_preinfect[33], bool:g_welcomemsg[33], 
@@ -333,6 +336,11 @@ public plugin_precache()
 	cvar_winsounds = register_cvar("bh_winsounds", "1")
 	cvar_roundstartsounds = register_cvar("bh_roundstartsounds", "1")
 	cvar_autonvg = register_cvar("bh_autonvg", "1")
+	cvar_nvg_bubble = register_cvar("bh_nvg_bubble", "1")
+	cvar_nvg_rgb = register_cvar("bh_nvg_rgb", "020255030")
+	cvar_nvg_radius = register_cvar("bh_nvg_radius", "125")
+	cvar_nvg_decay = register_cvar("bh_nvg_decay", "10")
+	cvar_nvg_life = register_cvar("bh_nvg_life", "1")
 	cvar_respawnaszombie = register_cvar("bh_respawnaszombie", "1")
 	cvar_painshockfree = register_cvar("bh_painshockfree", "1")
 	cvar_knockback = register_cvar("bh_knockback", "1")
@@ -1107,6 +1115,10 @@ public fwd_player_prethink(id)
 			g_regendelay[id] = gametime + g_class_data[pclass][DATA_REGENDLY]
 		}
 	}
+
+	if(get_pcvar_num(cvar_nvg_bubble) && g_bio_nv_client_on[id])
+		bio_nv_bubble_dlight(id)
+
 	return FMRES_IGNORED
 }
 
@@ -1206,7 +1218,9 @@ public fwd_cmdstart(id, handle, seed)
 
 public bio_clcmd_nightvision(id)
 {
-	if(!g_msg_nvgtoggle)
+	new bubble = get_pcvar_num(cvar_nvg_bubble)
+
+	if(!bubble && !g_msg_nvgtoggle)
 		return PLUGIN_CONTINUE
 
 	if(id < 1 || id > g_maxplayers || !is_user_alive(id) || !g_zombie[id])
@@ -1228,6 +1242,15 @@ public bio_clcmd_nightvision(id)
 	else
 		emit_sound(id, CHAN_ITEM, BIO_SND_NVG_OFF, 0.96, ATTN_NORM, 0, PITCH_NORM)
 
+	if(bubble)
+	{
+		if(on)
+			bio_nv_force_stock_off(id)
+
+		g_bio_nv_client_on[id] = on
+		return PLUGIN_HANDLED
+	}
+
 	message_begin(MSG_ONE, g_msg_nvgtoggle, _, id)
 	write_byte(on ? 1 : 0)
 	message_end()
@@ -1239,18 +1262,20 @@ public bio_clcmd_nightvision(id)
 
 public bio_nv_on_death_post(victim, killer, shouldgib)
 {
-	if(!g_msg_nvgtoggle)
-		return
-
 	if(victim < 1 || victim > g_maxplayers || !is_user_connected(victim))
 		return
 
 	if(!g_bio_nv_client_on[victim])
 		return
 
-	message_begin(MSG_ONE, g_msg_nvgtoggle, _, victim)
-	write_byte(0)
-	message_end()
+	if(get_pcvar_num(cvar_nvg_bubble))
+		bio_nv_force_stock_off(victim)
+	else if(g_msg_nvgtoggle)
+	{
+		message_begin(MSG_ONE, g_msg_nvgtoggle, _, victim)
+		write_byte(0)
+		message_end()
+	}
 
 	g_bio_nv_client_on[victim] = false
 }
@@ -1997,13 +2022,18 @@ public cure_user(id)
 	g_zombie[id] = false
 	g_falling[id] = false
 
-	if(g_bio_nv_client_on[id] && g_msg_nvgtoggle && is_user_connected(id))
+	if(g_bio_nv_client_on[id])
 	{
 		emit_sound(id, CHAN_ITEM, BIO_SND_NVG_OFF, 0.96, ATTN_NORM, 0, PITCH_NORM)
 
-		message_begin(MSG_ONE, g_msg_nvgtoggle, _, id)
-		write_byte(0)
-		message_end()
+		if(get_pcvar_num(cvar_nvg_bubble))
+			bio_nv_force_stock_off(id)
+		else if(g_msg_nvgtoggle)
+		{
+			message_begin(MSG_ONE, g_msg_nvgtoggle, _, id)
+			write_byte(0)
+			message_end()
+		}
 
 		g_bio_nv_client_on[id] = false
 	}
@@ -2571,6 +2601,67 @@ stock fm_set_user_nvg(index, onoff = 1)
 	// and goggles cannot toggle. Use the CS module natives instead.
 	cs_set_user_nvg(index, onoff ? 1 : 0)
 	return 1
+}
+
+stock bio_nv_force_stock_off(id)
+{
+	if(!g_msg_nvgtoggle || !is_user_connected(id))
+		return
+
+	message_begin(MSG_ONE, g_msg_nvgtoggle, _, id)
+	write_byte(0)
+	message_end()
+}
+
+stock bio_nv_parse_rgb(&red, &green, &blue)
+{
+	static color[12], num
+	get_pcvar_string(cvar_nvg_rgb, color, charsmax(color))
+	num = str_to_num(color)
+	red = num / 1000000
+	num %= 1000000
+	green = num / 1000
+	blue = num % 1000
+}
+
+stock bio_nv_bubble_dlight(id)
+{
+	static origin[3]
+	get_user_origin(id, origin, 1)
+
+	new Float:pos[3]
+	pos[0] = float(origin[0])
+	pos[1] = float(origin[1])
+	pos[2] = float(origin[2])
+
+	new radius = get_pcvar_num(cvar_nvg_radius)
+	if(radius < 1)
+		radius = 1
+
+	new decay = get_pcvar_num(cvar_nvg_decay)
+	if(decay < 0)
+		decay = 0
+
+	new life = get_pcvar_num(cvar_nvg_life) * 10
+	if(life < 1)
+		life = 1
+
+	static red, green, blue
+	bio_nv_parse_rgb(red, green, blue)
+
+	// Custom NVG Color (SAMURAI) — TE_DLIGHT bubble instead of full-screen NVGToggle.
+	message_begin(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, _, id)
+	write_byte(TE_DLIGHT)
+	write_coord_f(pos[0])
+	write_coord_f(pos[1])
+	write_coord_f(pos[2])
+	write_byte(radius)
+	write_byte(red)
+	write_byte(green)
+	write_byte(blue)
+	write_byte(life)
+	write_byte(decay)
+	message_end()
 }
 
 stock fm_set_user_money(index, addmoney, update = 1)
