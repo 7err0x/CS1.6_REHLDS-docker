@@ -62,17 +62,11 @@ ARG METAMOD_URL="https://github.com/rehlds/Metamod-R/releases/download/${METAMOD
 ARG REGAMEDLL_URL="https://github.com/rehlds/ReGameDLL_CS/releases/download/${REGAMEDLL_VERSION}/regamedll-bin-${REGAMEDLL_VERSION}.zip"
 ARG REAPI_URL="https://github.com/rehlds/ReAPI/releases/download/${REAPI_VERSION}/reapi-bin-${REAPI_VERSION}.zip"
 
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 ENV CPU_MHZ=2300
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends locales \
-    && rm -rf /var/lib/apt/lists/* \
-    && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen \
-    && locale-gen en_US.UTF-8
 
 RUN groupadd -r steam \
     && useradd -r -g steam -m -d /opt/steam steam
@@ -132,17 +126,17 @@ RUN chmod +x hlds_run hlds_linux \
     && echo 10 > steam_appid.txt
 
 # -----------------------------------------------------------------------------
-# Stage 3 — cs16-respawn: mapcycles, AMXX 1.9, ReUnion, Biohazard pack
+# Stage 3 — cs16 build: mapcycles, AMXX 1.9, ReUnion, Biohazard pack, then slim
 # -----------------------------------------------------------------------------
-FROM hlds-base AS cs16
+FROM hlds-base AS cs16-build
 
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 COPY docker/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
 COPY docker/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
-RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh \
-    && chown steam:steam /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh
+COPY docker/cs16-image-slim.sh /usr/local/sbin/cs16-image-slim.sh
+RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-image-slim.sh
 
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
@@ -151,9 +145,9 @@ COPY image/custom-maps/ /tmp/custom-maps-overlay/
 RUN find /tmp/custom-maps-overlay -maxdepth 1 -name '*.bsp' -exec cp -v {} /opt/steam/hlds/cstrike/maps/ \; \
     && rm -rf /tmp/custom-maps-overlay
 
-RUN chown steam:steam /opt/steam/hlds/cstrike/mapcycle.txt \
+RUN chown -R steam:steam /opt/steam/hlds/cstrike/mapcycle.txt \
     /opt/steam/hlds/cstrike/mapcycle.biohazard.txt \
-    && find /opt/steam/hlds/cstrike/maps -user root -exec chown steam:steam {} \;
+    /opt/steam/hlds/cstrike/maps
 
 ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz
 ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz
@@ -170,7 +164,6 @@ RUN curl -fsSL -o /tmp/amxx-base.tgz "${AMXX_BASE_URL}" \
        fi \
     && chown -R steam:steam /opt/steam/hlds/cstrike/addons/amxmodx
 
-# Optional pre-built overrides (skipped when empty); fresh compiles below replace same filenames.
 COPY image/zombiemod/extra-plugins/ /tmp/zombie-extra/
 RUN bash -c 'shopt -s nullglob; for f in /tmp/zombie-extra/*.amxx; do cp -v "$f" /opt/steam/hlds/cstrike/addons/amxmodx/plugins/; done' \
     && rm -rf /tmp/zombie-extra
@@ -234,18 +227,35 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
 
-RUN mkdir -p /usr/local/share/cs16-seed \
-    && for d in maps sound models sprites; do \
-         if [[ -d "/opt/steam/hlds/cstrike/$d" ]]; then \
-           mkdir -p "/usr/local/share/cs16-seed/$d" \
-           && cp -a "/opt/steam/hlds/cstrike/$d/." "/usr/local/share/cs16-seed/$d/"; \
-         fi; \
-       done \
-    && if [[ -d /opt/steam/hlds/cstrike/addons/amxmodx/data ]]; then \
-         mkdir -p /usr/local/share/cs16-seed/amxx-data \
-         && cp -a /opt/steam/hlds/cstrike/addons/amxmodx/data/. /usr/local/share/cs16-seed/amxx-data/; \
-       fi \
-    && chown -R steam:steam /usr/local/share/cs16-seed
+RUN /usr/local/sbin/cs16-image-slim.sh \
+    && chown -R steam:steam /usr/local/share/cs16-bootstrap /opt/steam
+
+# -----------------------------------------------------------------------------
+# Stage 4 — runtime: i386 libs only (no curl/unzip build tools)
+# -----------------------------------------------------------------------------
+FROM debian:bookworm-slim AS cs16
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV CPU_MHZ=2300
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN groupadd -r steam \
+    && useradd -r -g steam -m -d /opt/steam steam
+
+RUN dpkg --add-architecture i386 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libc6-i386 \
+        lib32gcc-s1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=cs16-build --chown=steam:steam /opt/steam /opt/steam
+COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
+COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
+COPY --from=cs16-build --chown=steam:steam /usr/local/share/cs16-bootstrap /usr/local/share/cs16-bootstrap
 
 USER steam
 WORKDIR /opt/steam/hlds

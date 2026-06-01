@@ -3,7 +3,7 @@
 set -euo pipefail
 
 STATE="${CS16_STATE_DIR:-/var/cs16/state}"
-SEED="${CS16_SEED_ROOT:-/usr/local/share/cs16-seed}"
+BOOTSTRAP="${CS16_BOOTSTRAP_ROOT:-/usr/local/share/cs16-bootstrap}"
 CSTRIKE="${CSTRIKE_ROOT:-/opt/steam/hlds/cstrike}"
 
 mkdir -p \
@@ -19,7 +19,7 @@ mkdir -p \
 seed_dir_if_empty() {
 	local name=$1
 	local dest="${STATE}/${name}"
-	local src="${SEED}/${name}"
+	local src="${BOOTSTRAP}/${name}"
 	local marker="${dest}/.seeded-from-image"
 
 	[[ -d "$src" ]] || return 0
@@ -32,7 +32,7 @@ seed_dir_if_empty() {
 	touch "$marker"
 }
 
-for subdir in maps sound models sprites amxx-data; do
+for subdir in maps sound models sprites wads amxx-data; do
 	seed_dir_if_empty "$subdir"
 done
 
