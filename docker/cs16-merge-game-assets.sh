@@ -33,11 +33,13 @@ if [[ -d "$SRC/sprites" ]]; then
 fi
 
 if [[ -d "$SRC/wads" ]]; then
+	mkdir -p "$CSTRIKE/wads"
 	while IFS= read -r -d '' w; do
-		cp -af "$w" "$CSTRIKE/"
+		cp -af "$w" "$CSTRIKE/wads/"
 	done < <(find "$SRC/wads" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 fi
 
 while IFS= read -r -d '' w; do
-	cp -af "$w" "$CSTRIKE/"
+	mkdir -p "$CSTRIKE/wads"
+	cp -af "$w" "$CSTRIKE/wads/"
 done < <(find "$SRC" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)

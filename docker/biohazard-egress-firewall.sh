@@ -11,13 +11,13 @@
 #
 # Environment (optional):
 #   CS16_BIOHAZARD_CONTAINER   default: cs16-biohazard0
-#   CS16_BIOHAZARD_DOCKER_NET  default: cs16-biohazard-internal
+#   CS16_BIOHAZARD_DOCKER_NET  default: cs16-internal-network
 #   CS16_EGRESS_STATE_FILE     default: /var/run/cs16-biohazard-egress.state
 
 set -euo pipefail
 
 CONTAINER_NAME="${CS16_BIOHAZARD_CONTAINER:-cs16-biohazard0}"
-DOCKER_NET="${CS16_BIOHAZARD_DOCKER_NET:-cs16-biohazard-internal}"
+DOCKER_NET="${CS16_BIOHAZARD_DOCKER_NET:-cs16-internal-network}"
 STATE_FILE="${CS16_EGRESS_STATE_FILE:-/var/run/cs16-biohazard-egress.state}"
 CHAIN="CS16-BIOHAZARD-EGRESS"
 IPTABLES=(iptables)

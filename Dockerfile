@@ -105,7 +105,8 @@ RUN curl -fsSL -o "/tmp/rehlds-bin-${REHLDS_BUILD}.zip" "${REHLDS_URL}" \
 RUN mkdir -p "${HOME}/.steam" \
     && ln -sf /opt/steam/linux32 "${HOME}/.steam/sdk32"
 
-RUN touch /opt/steam/hlds/cstrike/listip.cfg /opt/steam/hlds/cstrike/banned.cfg
+RUN touch /opt/steam/hlds/cstrike/listip.cfg /opt/steam/hlds/cstrike/banned.cfg \
+    /opt/steam/hlds/cstrike/config.cfg
 
 RUN mkdir -p /opt/steam/hlds/cstrike/addons/metamod \
     && : > /opt/steam/hlds/cstrike/addons/metamod/plugins.ini
@@ -138,10 +139,12 @@ FROM hlds-base AS cs16
 USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+COPY docker/cs16-hlds-meta-init.sh /usr/local/sbin/cs16-hlds-meta-init.sh
 COPY docker/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets.sh
 COPY docker/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
-RUN chmod +x /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh \
-    && chown steam:steam /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh
+COPY docker/cs16-runtime-setup.sh /usr/local/sbin/cs16-runtime-setup.sh
+RUN chmod +x /usr/local/sbin/cs16-hlds-meta-init.sh /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-runtime-setup.sh \
+    && chown steam:steam /usr/local/sbin/cs16-hlds-meta-init.sh /usr/local/sbin/cs16-merge-game-assets.sh /usr/local/sbin/cs16-merge-game-assets-entrypoint.sh /usr/local/sbin/cs16-runtime-setup.sh
 
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
@@ -201,6 +204,21 @@ RUN printf '%s\n%s\n' \
     > /opt/steam/hlds/cstrike/addons/metamod/plugins.ini
 
 COPY cstrike/amxmodx/users.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini
+COPY cstrike/server.cfg /opt/steam/hlds/cstrike/server.cfg
+COPY cstrike/config/ /opt/steam/hlds/cstrike/config/
+COPY cstrike/reunion.cfg /opt/steam/hlds/cstrike/reunion.cfg
+
+ARG CS16_SERVER_CONFIG=server.cfg
+ARG CS16_PLUGINS_INI=
+RUN if [[ "$CS16_SERVER_CONFIG" != "server.cfg" ]]; then \
+      cp "/opt/steam/hlds/cstrike/config/${CS16_SERVER_CONFIG}" \
+         /opt/steam/hlds/cstrike/config/server.cfg; \
+    fi \
+    && if [[ -n "$CS16_PLUGINS_INI" \
+      && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_PLUGINS_INI}" ]]; then \
+      cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_PLUGINS_INI}" \
+         /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini; \
+    fi
 
 RUN sed -i 's/^secure "1"/secure "0"/' /opt/steam/hlds/cstrike/liblist.gam \
     && sed -i \
@@ -217,6 +235,9 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     /opt/steam/hlds/cstrike/reunion.cfg /opt/steam/hlds/cstrike/liblist.gam \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
+
+RUN mkdir -p /usr/local/share/cs16-seed/cstrike-full \
+    && cp -a /opt/steam/hlds/cstrike/. /usr/local/share/cs16-seed/cstrike-full/
 
 USER steam
 WORKDIR /opt/steam/hlds

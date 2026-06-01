@@ -1,8 +1,3 @@
-.env
-
-# AMXX plugin binaries (built in Dockerfile stage amxx-build)
-**/*.amxx
-
-# Live-downloaded BSPs/audio/WAD overlays (see data/cs16-game-assets/*/ .gitkeep)
+# Optional local folder for manual map staging (not mounted by default).
 data/cs16-game-assets/**
 !data/cs16-game-assets/README.txt

@@ -1,7 +1,53 @@
-# Base image entrypoint ends with +map de_dust2; that map reloads after Metamod/AMXX init and overrides +map in command.
-# HLDS merges ./data/cs16-game-assets at start (`cs16-merge-game-assets-entrypoint.sh`).
+# HLDS merges optional community assets from the cs16-game-assets volume at start.
+# Configs are baked into the image (cstrike/ in repo → Dockerfile COPY).
+# Writable runtime state uses named Docker volumes only (no host bind mounts).
 x-cs16-merge-entrypoint: &cs16_merge_entrypoint
   - "/usr/local/sbin/cs16-merge-game-assets-entrypoint.sh"
+
+x-cs16-security: &cs16_security
+  init: true
+  read_only: true
+  user: steam
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:mode=1777,size=64m
+    - /run:mode=755,size=8m
+
+x-cs16-meta-init: &cs16_meta_init
+  user: "0:0"
+  entrypoint: ["/usr/local/sbin/cs16-hlds-meta-init.sh"]
+  volumes:
+    - cs16-hlds-meta:/var/cs16/hlds-meta
+  restart: "no"
+
+x-cs16-runtime-volumes: &cs16_runtime_volumes
+  - cs16-game-assets:/mnt/cs16-game-assets:ro
+  - cs16-logs:/opt/steam/hlds/cstrike/logs
+  - type: volume
+    source: cs16-hlds-meta
+    target: /opt/steam/hlds/cstrike/banned.cfg
+    volume:
+      subpath: banned.cfg
+  - type: volume
+    source: cs16-hlds-meta
+    target: /opt/steam/hlds/cstrike/listip.cfg
+    volume:
+      subpath: listip.cfg
+  - type: volume
+    source: cs16-hlds-meta
+    target: /opt/steam/hlds/cstrike/config.cfg
+    volume:
+      subpath: config.cfg
+  - cs16-amxx-data:/opt/steam/hlds/cstrike/addons/amxmodx/data
+  - cs16-steam-home:/opt/steam/.steam
+  - cs16-maps:/opt/steam/hlds/cstrike/maps
+  - cs16-sound:/opt/steam/hlds/cstrike/sound
+  - cs16-models:/opt/steam/hlds/cstrike/models
+  - cs16-sprites:/opt/steam/hlds/cstrike/sprites
+  - cs16-wads:/opt/steam/hlds/cstrike/wads
 
 x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "./hlds_run"
@@ -38,6 +84,20 @@ x-cs16-biohazard-cmd: &cs16_biohazard_cmd
   - "${BIOHAZARD_START_MAP:-cs_estate}"
 
 services:
+  cs16-meta-init:
+    <<: *cs16_meta_init
+    profiles:
+      - respawn
+    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
+    container_name: cs16-meta-init0
+
+  cs16-biohazard-meta-init:
+    <<: *cs16_meta_init
+    profiles:
+      - biohazard
+    image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
+    container_name: cs16-biohazard-meta-init0
+
   download-game-assets:
     build:
       context: .
@@ -46,10 +106,14 @@ services:
     profiles:
       - download-assets
     volumes:
-      - ./data/cs16-game-assets:/out
+      - cs16-game-assets:/out
 
   cs16:
+    <<: *cs16_security
     entrypoint: *cs16_merge_entrypoint
+    depends_on:
+      cs16-meta-init:
+        condition: service_completed_successfully
     profiles:
       - respawn
     build:
@@ -65,7 +129,9 @@ services:
         AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
         LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
         REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
-    image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+        CS16_SERVER_CONFIG: server.cfg
+        CS16_PLUGINS_INI: ""
+    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
     container_name: cs16-respawn0
     restart: unless-stopped
     platform: linux/amd64
@@ -73,17 +139,17 @@ services:
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
-    volumes:
-      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-      - ./cstrike/server.cfg:/opt/steam/hlds/cstrike/server.cfg:ro
-      - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
-      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
+    volumes: *cs16_runtime_volumes
     command: *cs16_respawn_cmd
     networks:
       - isolated
 
   cs16-biohazard:
+    <<: *cs16_security
     entrypoint: *cs16_merge_entrypoint
+    depends_on:
+      cs16-biohazard-meta-init:
+        condition: service_completed_successfully
     profiles:
       - biohazard
     build:
@@ -99,7 +165,9 @@ services:
         AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
         LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
         REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
-    image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+        CS16_SERVER_CONFIG: server-biohazard.cfg
+        CS16_PLUGINS_INI: plugins-biohazard.ini
+    image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
     container_name: cs16-biohazard0
     restart: unless-stopped
     platform: linux/amd64
@@ -107,17 +175,10 @@ services:
     ports:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
-    volumes:
-      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-      - ./cstrike/server.cfg:/opt/steam/hlds/cstrike/server.cfg:ro
-      - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
-      - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
-      - ./cstrike/config/server-biohazard.cfg:/opt/steam/hlds/cstrike/config/server.cfg:ro
-      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
-      - ./image/zombiemod/plugins-biohazard.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini:ro
+    volumes: *cs16_runtime_volumes
     command: *cs16_biohazard_cmd
-    networks:
-      - isolated
+##    networks:
+##      - isolated
 
   fastdl:
     profiles:
@@ -126,7 +187,7 @@ services:
       context: .
       dockerfile: docker/fastdl/Dockerfile
       args:
-        GAME_IMAGE: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+        GAME_IMAGE: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
     image: ${FASTDL_IMAGE_NAME:-cs16-fastdl:latest}
     container_name: cs16-fastdl0
     restart: unless-stopped
@@ -136,9 +197,21 @@ services:
     environment:
       CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
-      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+      - cs16-game-assets:/mnt/cs16-game-assets:ro
 
 networks:
   isolated:
     name: cs16-internal-network
     internal: true
+
+volumes:
+  cs16-game-assets:
+  cs16-hlds-meta:
+  cs16-logs:
+  cs16-amxx-data:
+  cs16-steam-home:
+  cs16-maps:
+  cs16-sound:
+  cs16-models:
+  cs16-sprites:
+  cs16-wads:

@@ -564,9 +564,38 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 - **Change `RCON_PASSWORD`** before exposing the host to the internet; use a firewall and only open what you need.
 - **VAC is off** (`secure 0` in **`liblist.gam`** and **`cstrike/config/server.cfg`**) so **Steam and non‑Steam** clients can connect with ReUnion; the server is **not** VAC‑secured.
 
+### Container hardening (`cs16`, `cs16-biohazard`)
+
+Both game services use:
+
+| Option | Effect |
+|--------|--------|
+| **`user: steam`** | Process runs as the image **`steam`** user (not root). |
+| **`init: true`** | Tiny init (**tini**) reaps zombie processes from **`hlds_run`**. |
+| **`read_only: true`** | Root filesystem is read-only; named volumes hold runtime writes. |
+| **`cap_drop: [ALL]`** | Drops Linux capabilities (game port **27015** is unprivileged inside the container). |
+| **`security_opt: no-new-privileges:true`** | Blocks privilege escalation via setuid binaries. |
+| **`tmpfs`** | Writable **`/tmp`** and **`/run`**. |
+
+**Writable named volumes** (created automatically on first **`docker compose up`** — no host **`mkdir`** / **`chmod`**):
+
+**`cs16-game-assets`** (community maps/sounds/WADs), **`cs16-logs`**, **`cs16-maps`**, **`cs16-sound`**, **`cs16-models`**, **`cs16-sprites`**, **`cs16-wads`**, **`cs16-amxx-data`**, **`cs16-steam-home`**, **`cs16-{banned,listip,config}-cfg`**.
+
+**Configs and plugins** are **baked into the image** from **`cstrike/`** and **`image/zombiemod/`** (edit in git, then **`docker compose build`**). Populate **`cs16-game-assets`** with:
+
+```bash
+docker compose --profile download-assets run --rm download-game-assets
+docker compose build cs16-biohazard
+docker compose --profile biohazard up -d --force-recreate
+```
+
+**Respawn** and **Biohazard** are separate images (**`cs16-respawn:latest`**, **`cs16-biohazard:latest`**) with different **`CS16_SERVER_CONFIG`** / **`CS16_PLUGINS_INI`** build args.
+
+**Logs:** default path is Docker volume **`cs16-logs`**. Inspect with **`docker compose logs`**, or **`docker run --rm -v cs16docker_cs16-logs:/logs:ro alpine ls /logs`** (volume name may be prefixed by the project name). Optional host logrotate: bind **`./data/cs16-logs`** over **`cs16-logs`** in a local override file if you prefer files on disk.
+
 ### Biohazard egress lockdown (`cs16-biohazard`)
 
-The **biohazard** service uses an **internal** Docker network (**`cs16-biohazard-internal`**) so the container has **no default route to the internet**. **Published ports** (**`BIOHAZARD_SERVER_PORT`**, default **27017**) still accept **incoming** player and RCON traffic; **FastDL** is fetched by **clients** from the **`fastdl`** service, not by the game container.
+The **biohazard** service uses an **internal** Docker network (**`cs16-internal-network`**) so the container has **no default route to the internet**. **Published ports** (**`BIOHAZARD_SERVER_PORT`**, default **27017**) still accept **incoming** player and RCON traffic; **FastDL** is fetched by **clients** from the **`fastdl`** service, not by the game container.
 
 **Trade-offs:** Steam **master-server heartbeats** (server browser listing) and any **plugin-initiated outbound HTTP** are blocked. **Direct connect** (`connect host:port`) continues to work.
 

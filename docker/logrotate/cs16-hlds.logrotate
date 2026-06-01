@@ -1,0 +1,10 @@
+# HLDS console logs (host path substituted by docker/install-logrotate.sh).
+@CS16_LOG_DIR@/L*.log @CS16_LOG_DIR@/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
