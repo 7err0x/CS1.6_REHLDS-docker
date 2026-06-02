@@ -2,12 +2,11 @@
  * Biohazard port of [ZP] Zombie Sounds (Zombie Plague 5.0.8).
  * GPL — original by ZP Dev Team. Upstream: Gam3ronE/ZP zp50_zombie_sounds.sma
  *
- * Replaces knife/pain/die/fall sounds for zombies and plays periodic idle taunts
- * (Nihilanth + zombie_plague/zombie_brains from stock ZP defaults).
+ * Replaces knife/pain/die/fall sounds for zombies.
+ * Periodic idle taunts removed — handled by biohazard bh_ambience instead.
  */
 #include <amxmodx>
 #include <fakemeta>
-#include <hamsandwich>
 
 #tryinclude <biohazard>
 
@@ -16,11 +15,8 @@
 #endif
 
 #define PLUGIN_NAME "[BH] zp50-derived Zombie Sounds"
-#define PLUGIN_VERS "1.0"
+#define PLUGIN_VERS "1.1"
 #define PLUGIN_AUTH "ZP Dev Team / BH port"
-
-#define TASK_IDLE_SOUNDS 100
-#define ID_IDLE_SOUNDS (taskid - TASK_IDLE_SOUNDS)
 
 #define SOUND_MAX_LENGTH 64
 
@@ -62,19 +58,7 @@ new const sound_zombie_hit_normal[][] =
 
 new const sound_zombie_hit_stab[][] = { "weapons/knife_stab.wav" }
 
-new const sound_zombie_idle[][] =
-{
-	"nihilanth/nil_now_die.wav",
-	"nihilanth/nil_slaves.wav",
-	"nihilanth/nil_alone.wav",
-	"zombie_plague/zombie_brains1.wav",
-	"zombie_plague/zombie_brains2.wav"
-}
-
-new const sound_zombie_idle_last[][] = { "nihilanth/nil_thelast.wav" }
-
-new g_mp
-new g_cvPain, g_cvAttack, g_cvIdle
+new g_cvPain, g_cvAttack
 
 public plugin_precache()
 {
@@ -101,13 +85,7 @@ public plugin_precache()
 	for (i = 0; i < sizeof sound_zombie_hit_stab; i++)
 		precache_sound(sound_zombie_hit_stab[i])
 
-	for (i = 0; i < sizeof sound_zombie_idle; i++)
-		precache_sound(sound_zombie_idle[i])
-
-	for (i = 0; i < sizeof sound_zombie_idle_last; i++)
-		precache_sound(sound_zombie_idle_last[i])
-
-	// knife_* / weapons/* already precached by engine; nihilanth/* lives in valve/
+	// knife_* / weapons/* already precached by engine
 }
 
 public plugin_init()
@@ -120,34 +98,10 @@ public plugin_init()
 		return
 	}
 
-	g_mp = get_maxplayers()
-
 	register_forward(FM_EmitSound, "fw_EmitSound")
-	RegisterHam(Ham_Killed, "player", "fw_PlayerKilled")
 
 	g_cvPain = register_cvar("zp_zombie_sounds_pain", "1")
 	g_cvAttack = register_cvar("zp_zombie_sounds_attack", "1")
-	g_cvIdle = register_cvar("zp_zombie_sounds_idle", "1")
-}
-
-public client_disconnected(id)
-{
-	remove_task(id + TASK_IDLE_SOUNDS)
-}
-
-public event_infect(victim, attacker)
-{
-	remove_task(victim + TASK_IDLE_SOUNDS)
-
-	if (!get_pcvar_num(g_cvIdle))
-		return
-
-	set_task(random_float(50.0, 70.0), "zombie_idle_sounds", victim + TASK_IDLE_SOUNDS, _, _, "b")
-}
-
-public fw_PlayerKilled(victim)
-{
-	remove_task(victim + TASK_IDLE_SOUNDS)
 }
 
 public fw_EmitSound(id, channel, const sample[], Float:volume, Float:attn, flags, pitch)
@@ -216,40 +170,4 @@ public fw_EmitSound(id, channel, const sample[], Float:volume, Float:attn, flags
 	}
 
 	return FMRES_IGNORED
-}
-
-public zombie_idle_sounds(taskid)
-{
-	new id = ID_IDLE_SOUNDS
-
-	if (!is_user_connected(id) || !is_user_alive(id) || !is_user_zombie(id))
-	{
-		remove_task(taskid)
-		return
-	}
-
-	static sound[SOUND_MAX_LENGTH]
-
-	if (bh_is_last_zombie(id))
-		copy(sound, charsmax(sound), sound_zombie_idle_last[random_num(0, sizeof sound_zombie_idle_last - 1)])
-	else
-		copy(sound, charsmax(sound), sound_zombie_idle[random_num(0, sizeof sound_zombie_idle - 1)])
-
-	emit_sound(id, CHAN_VOICE, sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-}
-
-stock bool:bh_is_last_zombie(id)
-{
-	if (!is_user_zombie(id))
-		return false
-
-	new count, i
-
-	for (i = 1; i <= g_mp; i++)
-	{
-		if (is_user_alive(i) && is_user_zombie(i))
-			count++
-	}
-
-	return count <= 1
 }

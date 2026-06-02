@@ -30,7 +30,7 @@ new const sound_zombie_miss_slash[][] = { "weapons/knife_slash1.wav" , "weapons/
 new const sound_zombie_miss_wall[][] = { "weapons/knife_hitwall1.wav" }
 new const sound_zombie_hit_normal[][] = { "weapons/knife_hit1.wav" , "weapons/knife_hit2.wav" , "weapons/knife_hit3.wav" , "weapons/knife_hit4.wav" }
 new const sound_zombie_hit_stab[][] = { "weapons/knife_stab.wav" }
-new const sound_zombie_idle[][] = { "nihilanth/nil_now_die.wav" , "nihilanth/nil_slaves.wav" , "nihilanth/nil_alone.wav" , "zombie_plague/zombie_brains1.wav" , "zombie_plague/zombie_brains2.wav" }
+// sound_zombie_idle defaults removed — use bh_ambience on Biohazard servers (no overlap with Nihilanth/brains).
 new const sound_zombie_idle_last[][] = { "nihilanth/nil_thelast.wav" }
 
 #define SOUND_MAX_LENGTH 64
@@ -156,14 +156,6 @@ public plugin_precache()
 		
 		// Save to external file
 		amx_save_setting_string_arr(ZP_SETTINGS_FILE, "Sounds", "ZOMBIE HIT STAB", g_sound_zombie_hit_stab)
-	}
-	if (ArraySize(g_sound_zombie_idle) == 0)
-	{
-		for (index = 0; index < sizeof sound_zombie_idle; index++)
-			ArrayPushString(g_sound_zombie_idle, sound_zombie_idle[index])
-		
-		// Save to external file
-		amx_save_setting_string_arr(ZP_SETTINGS_FILE, "Sounds", "ZOMBIE IDLE", g_sound_zombie_idle)
 	}
 	if (ArraySize(g_sound_zombie_idle_last) == 0)
 	{
@@ -374,11 +366,6 @@ public zombie_idle_sounds(taskid)
 	if (zp_core_is_last_zombie(ID_IDLE_SOUNDS))
 	{
 		ArrayGetString(g_sound_zombie_idle_last, random_num(0, ArraySize(g_sound_zombie_idle_last) - 1), sound, charsmax(sound))
-		emit_sound(ID_IDLE_SOUNDS, CHAN_VOICE, sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
-	}
-	else
-	{
-		ArrayGetString(g_sound_zombie_idle, random_num(0, ArraySize(g_sound_zombie_idle) - 1), sound, charsmax(sound))
 		emit_sound(ID_IDLE_SOUNDS, CHAN_VOICE, sound, 1.0, ATTN_NORM, 0, PITCH_NORM)
 	}
 }
