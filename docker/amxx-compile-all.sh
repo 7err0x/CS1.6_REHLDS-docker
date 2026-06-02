@@ -14,6 +14,7 @@ PACK=(
 	bio_boatescape.sma
 	bio_radar.sma
 	bio_smokeflare.sma
+	bio_smoker.sma
 	spawn_editor.sma
 	zp50_zombie_sounds.sma
 	zp50_ambience_sounds.sma
