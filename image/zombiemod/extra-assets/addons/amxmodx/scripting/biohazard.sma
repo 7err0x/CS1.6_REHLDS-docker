@@ -27,7 +27,7 @@
 *  version.
 */
 
-#define VERSION	"2.00 Beta 3"
+#define VERSION	"2026.06"
 
 #include <amxmodx>
 #include <amxmisc>
@@ -563,7 +563,6 @@ public plugin_precache()
 	register_spawnpoints(mapname)
 		
 	register_zombieclasses("bh_zombieclass.ini")
-	register_dictionary("biohazard.txt")
 	
 	precache_model(DEFAULT_PMODEL)
 	precache_model(DEFAULT_WMODEL)
@@ -632,6 +631,8 @@ public plugin_init()
 {
 	if(!get_pcvar_num(cvar_enabled)) 
 		return
+
+	register_dictionary("biohazard.txt")
 	
 	cvar_botquota = get_cvar_pointer("bot_quota")
 	cvar_autoteambalance[0] = get_cvar_pointer("mp_autoteambalance")
@@ -840,12 +841,56 @@ public cmd_enablemenu(id)
 	}
 }
 
+#define BH_MOTD_MAX 4096
+
+stock bh_load_help_motd(id, motd[], motd_len)
+{
+	new cfgdir[64], path[128], langcode[4]
+	get_configsdir(cfgdir, charsmax(cfgdir))
+
+	if(LookupLangKey(langcode, charsmax(langcode), "HELP_MOTD_LANG", id) && equal(langcode, "ro"))
+		formatex(path, charsmax(path), "%s/biohazard_motd_ro.html", cfgdir)
+	else
+		formatex(path, charsmax(path), "%s/biohazard_motd_en.html", cfgdir)
+
+	new file = fopen(path, "rt")
+
+	if(!file)
+	{
+		formatex(path, charsmax(path), "%s/biohazard_motd_en.html", cfgdir)
+		file = fopen(path, "rt")
+	}
+
+	motd[0] = 0
+
+	if(!file)
+	{
+		copy(motd, motd_len, "<html><body><pre>Biohazard v#Version# Type /class /lm and /guns in chat.</pre></body></html>")
+		return
+	}
+
+	new line[512]
+
+	while(!feof(file))
+	{
+		fgets(file, line, charsmax(line))
+
+		if(strlen(motd) + strlen(line) >= motd_len - 1)
+			break
+
+		add(motd, motd_len, line)
+	}
+
+	fclose(file)
+}
+
 public cmd_helpmotd(id)
 {
-	static motd[2048]
-	formatex(motd, 2047, "%L", id, "HELP_MOTD")
-	replace(motd, 2047, "#Version#", VERSION)
-	
+	static motd[BH_MOTD_MAX]
+
+	bh_load_help_motd(id, motd, charsmax(motd))
+	replace(motd, charsmax(motd), "#Version#", VERSION)
+
 	show_motd(id, motd, "Biohazard Help")
 }	
 

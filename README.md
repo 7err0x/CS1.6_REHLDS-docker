@@ -67,7 +67,7 @@ docker compose --profile biohazard up -d --force-recreate
 | `.env` | Port, slots, **RCON password**, start map, hostname (see `.env.example`). Optional **`AMXX_BASE_URL`** overrides the AMXX tarball used at **image build** time (Compose passes it as a build arg). |
 | `cstrike/config/server.cfg` | Gameplay: **respawn**, teams vs FFA, round time, etc. Also **`secure 0`** / **`mp_consistency 0`** (VAC off; complements **`liblist.gam`**). |
 | `cstrike/config/gamemode-biohazard.cfg` | **`cs16-biohazard`** boot **`+exec`**: **`mapcyclefile`** / flashlight. |
-| `cstrike/config/server-biohazard.cfg` | Mounted as **`server.cfg`** on **`cs16-biohazard` only** — like **`server.cfg`** but **`mp_forcerespawn 0`** + **`mapcycle.biohazard.txt`**. |
+| `cstrike/config/server-biohazard.cfg` | Baked as **`server.cfg`** on **`cs16-biohazard` only** — **`mp_forcerespawn 0`**, **`mapcycle.biohazard.txt`**, **`amx_scrollmsg`** (see [Server name, game mode, welcome text, and announcements](#server-name-game-mode-welcome-text-and-announcements)). |
 | `cstrike/amxmodx/users.ini` | **AMXX** admins (Steam ID / IP / flags). Mounted into **`addons/amxmodx/configs/users.ini`**. |
 | `reunion.cfg` (in image) | ReUnion auth: **`AuthVersion = 2`**, **`cid_NoSteam47/48 = 3`** (STEAM\_ IDs by IP) so non‑Steam clients are not rejected. Mount your own copy over `/opt/steam/hlds/cstrike/reunion.cfg` if you need stricter rules. |
 
@@ -78,6 +78,49 @@ docker compose up -d --force-recreate
 ```
 
 **Hostname** is applied from `.env` via the process command line; gameplay cvars live in `cstrike/config/server.cfg`.
+
+### Server name, game mode, welcome text, and announcements
+
+What players see comes from several places. After edits, use the **Apply changes** row below — hostname is the only item that usually needs **no image rebuild**.
+
+| What players see | Where to edit | Apply changes |
+|------------------|---------------|---------------|
+| **Server name** (Internet / LAN browser list) | **`.env`**: `SERVER_HOSTNAME` (respawn **`cs16`**) or `BIOHAZARD_SERVER_HOSTNAME` (infection **`cs16-biohazard`**). Quotes if the name has spaces, e.g. `BIOHAZARD_SERVER_HOSTNAME="My ZM LAN"`. Set via `+hostname` in [`docker-compose.yml`](docker-compose.yml) — **not** `server.cfg`. | `docker compose up -d --force-recreate` (respawn) or `docker compose --profile biohazard up -d --force-recreate` |
+| **Game / mode** string (browser **Game** column, e.g. `Biohazard`) | Biohazard cvar **`bh_gamedescription`** in [`image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg) (add a line if missing, e.g. `bh_gamedescription "Infection ZM"`). Implemented in [`biohazard.sma`](image/zombiemod/extra-assets/addons/amxmodx/scripting/biohazard.sma) (`FM_GetGameDescription`). **Biohazard profile only.** | `docker compose build cs16-biohazard` then `docker compose --profile biohazard up -d --force-recreate` |
+| **Welcome line** (chat once when you spawn alive) | [`image/zombiemod/extra-assets/addons/amxmodx/data/lang/biohazard.txt`](image/zombiemod/extra-assets/addons/amxmodx/data/lang/biohazard.txt) — English block `[en]`, key **`WELCOME_TXT`** (supports `#Version#` placeholder). **Biohazard only.** | Rebuild **`cs16-biohazard`** (lang files are baked from **`extra-assets/`**) |
+| **Join MOTD** (first screen when you connect) | Same source as help: [`biohazard_motd_en.html`](image/zombiemod/extra-assets/addons/amxmodx/configs/biohazard_motd_en.html) is copied to **`cstrike/motd.txt`** at image build (`#Version#` filled from `biohazard.sma`). Replaces the default ReHLDS “You are playing Counter-Strike…” page. **Biohazard only.** | Rebuild **`cs16-biohazard`** |
+| **Help / MOTD banner** (same HTML; chat: **`say /help`** or **`/help`**) | [`biohazard_motd_en.html`](image/zombiemod/extra-assets/addons/amxmodx/configs/biohazard_motd_en.html) and [`biohazard_motd_ro.html`](image/zombiemod/extra-assets/addons/amxmodx/configs/biohazard_motd_ro.html) (Romanian clients on `/help`). Edit HTML directly. **Biohazard only.** | Rebuild **`cs16-biohazard`** |
+| **Other Biohazard chat/menu text** | [`addons/amxmodx/data/lang/biohazard.txt`](image/zombiemod/extra-assets/addons/amxmodx/data/lang/biohazard.txt) — **`[en]`** and **`[ro]`** only (menus, infection messages, welcome line). | Rebuild **`cs16-biohazard`** |
+| **Scrolling chat announcements** (periodic center/chat reminder) | [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg) — line **`amx_scrollmsg "…" 660`**. Second number = interval in **seconds** (`660` ≈ 11 minutes). Comment out the line to disable. Plugin: **`scrollmsg.amxx`** in [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini). Respawn server: add the same line to [`cstrike/config/server.cfg`](cstrike/config/server.cfg) if you want it there too. | `docker compose build cs16-biohazard` (or `cs16-respawn`) then recreate the service |
+| **Center-screen AMXX messages** (`imessage`) | **`imessage.amxx`** is enabled on Biohazard but **no default messages** are shipped. To use it, add message definitions (standard AMXX: **`amx_imessage`** in a cfg, or custom message config under **`addons/amxmodx/configs/`**) and bake or mount them. | Rebuild or mount your cfg; restart server |
+
+**Examples**
+
+`.env` (browser name):
+
+```bash
+BIOHAZARD_SERVER_HOSTNAME="ZM Biohazard — LAN"
+```
+
+`bh_cvars.cfg` (browser **Game** column):
+
+```cfg
+bh_gamedescription "Infection / Biohazard"
+```
+
+`biohazard.txt` (welcome chat):
+
+```ini
+WELCOME_TXT = Welcome! Infection round — type /help for rules. Biohazard v#Version#
+```
+
+`server-biohazard.cfg` (scroll reminder every 5 minutes):
+
+```cfg
+amx_scrollmsg "Say /help for rules. Humans: /lm for lasermines." 300
+```
+
+**Note:** `cstrike/config/*.cfg` and `extra-assets/` are **copied into the image at build time** (see [`Dockerfile`](Dockerfile)). Editing them on the host does not affect a running container until you **`docker compose build`** the matching image. Hostname in **`.env`** is the exception (read at container start).
 
 ### Respawn and teams
 
@@ -138,7 +181,7 @@ The image includes **[Amxx Laser TripMine Entity](https://github.com/AoiKagase/A
 - **Buy** (survivors / humans only on this server): console **`buy_lasermine`**, or chat **`/lm`**, **`/buy lasermine`**, or **`say /lasermine`** (opens help). Price and buy-zone rules: **`bh_ltm_buy_price`**, **`bh_ltm_buy_zone`**, **`bh_ltm_buy_mode`** in the same file.
 - **Place**: bind a key to **`+setlaser`** or **`+setlm`** (release to finish).
 - **Pick up / remove your mine**: aim within ~128 units and hold **USE** (default **E**), or bind **`+dellaser`** / **`-dellaser`** (same hold/release pattern as **`+setlaser`** — use **`bind KEY +dellaser`**, not `bind KEY dellaser`). Upstream sources only hooked USE; this image also registers **`+dellaser`** so the in-plugin help matches behavior.
-- A **scrolling chat reminder** is set in **`cstrike/config/server-biohazard.cfg`** (`amx_scrollmsg`). In-game **`say lasermine`** uses **`addons/amxmodx/data/lang/lasermine.txt`** (`REFER` line).
+- A **scrolling chat reminder** is set in **`cstrike/config/server-biohazard.cfg`** (`amx_scrollmsg`) — edit interval and text there (see [Server name, game mode, welcome text, and announcements](#server-name-game-mode-welcome-text-and-announcements)). In-game **`say lasermine`** uses **`addons/amxmodx/data/lang/lasermine.txt`** (`REFER` line).
 
 ### Zombie night vision
 

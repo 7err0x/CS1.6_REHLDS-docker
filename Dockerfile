@@ -216,6 +216,13 @@ RUN if [[ "$CS16_SERVER_CONFIG" != "server.cfg" ]]; then \
       && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_MAPS_INI}" ]]; then \
       cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_MAPS_INI}" \
          /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps.ini; \
+    fi \
+    && if [[ "$CS16_PLUGINS_INI" == "plugins-biohazard.ini" ]]; then \
+      MOTD_CFG="/opt/steam/hlds/cstrike/addons/amxmodx/configs/biohazard_motd_en.html"; \
+      SMA="/opt/steam/hlds/cstrike/addons/amxmodx/scripting/biohazard.sma"; \
+      VERSION=$(grep -m1 '^#define VERSION' "$SMA" | sed 's/.*"\([^"]*\)".*/\1/'); \
+      cp "$MOTD_CFG" /opt/steam/hlds/cstrike/motd.txt; \
+      sed -i "s/#Version#/${VERSION}/g" /opt/steam/hlds/cstrike/motd.txt; \
     fi
 
 RUN sed -i 's/^secure "1"/secure "0"/' /opt/steam/hlds/cstrike/liblist.gam \
@@ -231,6 +238,7 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     /opt/steam/hlds/cstrike/addons/amxmodx/configs \
     /opt/steam/hlds/cstrike/addons/amxmodx/data \
     /opt/steam/hlds/cstrike/reunion.cfg /opt/steam/hlds/cstrike/liblist.gam \
+    /opt/steam/hlds/cstrike/motd.txt \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
 
