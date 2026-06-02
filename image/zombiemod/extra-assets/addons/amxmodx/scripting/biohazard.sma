@@ -288,6 +288,7 @@ new g_maxplayers, g_spawncount, g_buyzone, g_botclient_pdata, g_sync_hpdisplay,
     
 new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cvar_autonvg, 
     cvar_winsounds, cvar_roundstartsounds, cvar_ambience, cvar_ambience_min, cvar_ambience_max, cvar_ambience_vol,
+    cvar_ambience_hear_dist,
     cvar_weaponsmenu, cvar_lights, cvar_killbonus, cvar_enabled, 
     cvar_gamedescription, cvar_botquota, cvar_maxzombies, cvar_flashbang, cvar_buytime,
     cvar_respawnaszombie, cvar_punishsuicide, cvar_infectmoney, cvar_showtruehealth,
@@ -344,6 +345,109 @@ stock Float:bh_ambience_next_delay()
 	return float(random_num(imin, imax))
 }
 
+stock Float:bh_dist_to_nearest_zombie(id)
+{
+	static Float:oorigin[3], Float:zorigin[3]
+	new Float:best = 999999.0
+
+	pev(id, pev_origin, oorigin)
+
+	for(new z = 1; z <= g_maxplayers; z++)
+	{
+		if(!is_user_connected(z) || is_user_hltv(z))
+			continue
+
+		if(!is_user_alive(z) || !g_zombie[z])
+			continue
+
+		pev(z, pev_origin, zorigin)
+
+		new Float:d = get_distance_f(oorigin, zorigin)
+
+		if(d < best)
+			best = d
+	}
+
+	return best
+}
+
+stock Float:bh_dist_to_nearest_human(zombie)
+{
+	static Float:zorigin[3], Float:horigin[3]
+	new Float:best = 999999.0
+
+	pev(zombie, pev_origin, zorigin)
+
+	for(new i = 1; i <= g_maxplayers; i++)
+	{
+		if(!is_user_connected(i) || is_user_hltv(i))
+			continue
+
+		if(!is_user_alive(i) || g_zombie[i])
+			continue
+
+		pev(i, pev_origin, horigin)
+
+		new Float:d = get_distance_f(zorigin, horigin)
+
+		if(d < best)
+			best = d
+	}
+
+	return best
+}
+
+stock bool:bh_human_near_zombie(Float:radius)
+{
+	for(new i = 1; i <= g_maxplayers; i++)
+	{
+		if(!is_user_connected(i) || is_user_hltv(i))
+			continue
+
+		if(!is_user_alive(i) || g_zombie[i])
+			continue
+
+		if(bh_dist_to_nearest_zombie(i) <= radius)
+			return true
+	}
+
+	return false
+}
+
+stock bh_pick_ambience_zombie(Float:human_radius)
+{
+	new zombies[32], znum
+
+	znum = 0
+
+	for(new i = 1; i <= g_maxplayers; i++)
+	{
+		if(!is_user_connected(i) || is_user_hltv(i))
+			continue
+
+		if(!is_user_alive(i) || !g_zombie[i])
+			continue
+
+		zombies[znum++] = i
+	}
+
+	if(!znum)
+		return 0
+
+	new near[32], nn = 0
+
+	for(new i = 0; i < znum; i++)
+	{
+		if(bh_dist_to_nearest_human(zombies[i]) <= human_radius)
+			near[nn++] = zombies[i]
+	}
+
+	if(nn)
+		return near[random_num(0, nn - 1)]
+
+	return zombies[random_num(0, znum - 1)]
+}
+
 stock bh_ambience_broadcast(const snd[])
 {
 	new Float:vol = get_pcvar_float(cvar_ambience_vol)
@@ -351,15 +455,22 @@ stock bh_ambience_broadcast(const snd[])
 	if(vol <= 0.0)
 		return
 
-	new i, pitch = random_num(94, 106)
+	new Float:hear_dist = get_pcvar_float(cvar_ambience_hear_dist)
 
-	for(i = 1; i <= g_maxplayers; i++)
-	{
-		if(!is_user_connected(i) || is_user_hltv(i))
-			continue
+	if(hear_dist < 128.0)
+		hear_dist = 128.0
 
-		emit_sound(i, CHAN_VOICE, snd, vol, ATTN_NORM, 0, pitch)
-	}
+	// Survivors only hear 3D cues when close to the horde; emit from a zombie entity.
+	if(!bh_human_near_zombie(hear_dist))
+		return
+
+	new emitter = bh_pick_ambience_zombie(hear_dist)
+
+	if(!emitter)
+		return
+
+	new pitch = random_num(94, 106)
+	emit_sound(emitter, CHAN_AUTO, snd, vol, ATTN_NORM, 0, pitch)
 }
 
 stock bh_ambience_stop()
@@ -409,6 +520,7 @@ public plugin_precache()
 	cvar_ambience_min = register_cvar("bh_ambience_min", "12.0")
 	cvar_ambience_max = register_cvar("bh_ambience_max", "28.0")
 	cvar_ambience_vol = register_cvar("bh_ambience_vol", "0.30")
+	cvar_ambience_hear_dist = register_cvar("bh_ambience_hear_dist", "900.0")
 	cvar_autonvg = register_cvar("bh_autonvg", "1")
 	cvar_nvg_bubble = register_cvar("bh_nvg_bubble", "1")
 	cvar_nvg_rgb = register_cvar("bh_nvg_rgb", "020255030")
