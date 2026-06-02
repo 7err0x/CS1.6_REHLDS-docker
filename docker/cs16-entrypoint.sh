@@ -43,4 +43,14 @@ if [[ "${CS16_SKIP_MERGE_GAME_ASSETS:-0}" != "1" && -d "$SRC" ]]; then
 	done < <(find "$SRC" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 fi
 
+# Writable state volume masks image-baked sprites; add any pack files missing after an image upgrade.
+BOOT="${CS16_BOOTSTRAP_ROOT:-/usr/local/share/cs16-bootstrap}"
+if [[ -d "$BOOT/sprites" ]]; then
+	mkdir -p "$CSTRIKE/sprites"
+	while IFS= read -r -d '' f; do
+		base=$(basename "$f")
+		[[ -e "$CSTRIKE/sprites/$base" ]] || cp -af "$f" "$CSTRIKE/sprites/$base"
+	done < <(find "$BOOT/sprites" -maxdepth 1 -type f -print0)
+fi
+
 exec "$@"

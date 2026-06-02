@@ -6,7 +6,7 @@
  *
  * Human HE grenade: red trail + glow → burn zombies in radius (Damage HUD + slowdown + HP drain).
  *
- * Burn puffs use sprites shipped with CS (not HL-only flame.spr — that crashes Mod_LoadModel).
+ * Burn effect uses sprites/flame.spr (bundled in extra-assets/sprites/).
  */
 #include <amxmodx>
 #include <engine>
@@ -22,7 +22,7 @@
 #endif
 
 #define PLUGIN_NAME "[BH] zp50-derived Grenade: Fire"
-#define PLUGIN_VERS "1.03"
+#define PLUGIN_VERS "1.04"
 #define PLUGIN_AUTH "ZP Dev Team / BH port"
 
 #define TASK_BURN 9300
@@ -52,12 +52,11 @@ new const SND_BRN[][64] =
 
 new const MODEL_TRAIL[] = "sprites/laserbeam.spr"
 new const MODEL_RING[] = "sprites/shockwave.spr"
-// Vanilla cstrike includes black_smoke3.spr; flame.spr does not (Half-Life only → FATAL on load).
-new const MODEL_BURN_PUFF[] = "sprites/black_smoke3.spr"
+new const MODEL_BURN_FLAME[] = "sprites/flame.spr"
 
 new g_idTrail
 new g_idRing
-new g_idPuff
+new g_idFlame
 
 new g_msgDamage
 
@@ -81,7 +80,7 @@ public plugin_precache()
 
 	g_idTrail = precache_model(MODEL_TRAIL)
 	g_idRing = precache_model(MODEL_RING)
-	g_idPuff = precache_model(MODEL_BURN_PUFF)
+	g_idFlame = precache_model(MODEL_BURN_FLAME)
 }
 
 public plugin_init()
@@ -147,13 +146,13 @@ stock StopBurn(id)
 	get_user_origin(id, ori)
 
 	message_begin(MSG_PVS, SVC_TEMPENTITY, ori)
-	write_byte(TE_SMOKE)
+	write_byte(TE_SPRITE)
 	write_coord(ori[0])
 	write_coord(ori[1])
-	write_coord(ori[2] - 50)
-	write_short(g_idPuff)
-	write_byte(random_num(15, 20))
-	write_byte(random_num(10, 20))
+	write_coord(ori[2] - 20)
+	write_short(g_idFlame)
+	write_byte(random_num(3, 5))
+	write_byte(120)
 	message_end()
 }
 
@@ -339,9 +338,9 @@ public TickBurn(tid)
 	write_coord(ori[0] + random_num(-5, 5))
 	write_coord(ori[1] + random_num(-5, 5))
 	write_coord(ori[2] + random_num(-10, 10))
-	write_short(g_idPuff)
-	write_byte(random_num(5, 10))
-	write_byte(200)
+	write_short(g_idFlame)
+	write_byte(random_num(8, 12))
+	write_byte(220)
 	message_end()
 
 	g_ticksLeft[id]--
