@@ -1,5 +1,7 @@
 # Counter-Strike 1.6 in Docker
 
+[![Build and push to GHCR](https://github.com/7err0x/CS1.6_REHLDS-docker/actions/workflows/build-push-ghcr.yml/badge.svg)](https://github.com/7err0x/CS1.6_REHLDS-docker/actions/workflows/build-push-ghcr.yml)
+
 **Free and open source** Docker deployment for Counter-Strike 1.6 dedicated servers supporting **multiple gamemodes**
 
 **Included out of the box:** classic **respawn / deathmatch** and **Zombie Mod Classic — Biohazard** infection with:
