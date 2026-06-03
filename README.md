@@ -1,8 +1,41 @@
-# Counter-Strike 1.6 in Docker (respawn / deathmatch mode)
+# Counter-Strike 1.6 in Docker
 
-This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage Dockerfile** in this repo (no dependency on a pre-built **`ghcr.io/blsalin/rehlds-cstrike`** image). Stage **`hlds-base`** vendors the [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) recipe ([upstream Dockerfile](https://github.com/BLSAlin/rehlds-cstrike/blob/master/Dockerfile)): **SteamCMD** HLDS (`steam_legacy`), then binaries from the official **[rehlds](https://github.com/rehlds)** org — **[ReHLDS](https://github.com/rehlds/ReHLDS)**, **[Metamod-R](https://github.com/rehlds/Metamod-R)**, **[ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS)**, **[ReAPI](https://github.com/rehlds/ReAPI)** (pinned release tags in [`Dockerfile`](Dockerfile) / **`.env.example`**; see [ReHLDS stack versions](#rehlds-stack-versions)). Stage **`amxx-build`** compiles **all Biohazard-pack `.sma`** sources (incl. **Lasermine** with Biohazard patches) against **AMXX 1.9**. Stage **`cs16`** installs **AMXX 1.9** (not upstream’s 1.8.2, which **segfaults** here), **[ReUnion](https://github.com/rehlds/ReUnion)**, Biohazard assets, and **Metamod** order **ReUnion → AMXX**. **ReGameDLL** enables **respawn** (`mp_forcerespawn` in `cstrike/config/server.cfg`). **`secure 0`** / **`reunion.cfg`** support Steam + typical non‑Steam clients. Extra BSPs/wads/sounds come from **`./data/cs16-game-assets/`** (manifest + **`download-game-assets`**, manual drops, or **`image/custom-maps/`**). **`hlds_run -pingboost 2`** is set in **`docker-compose.yml`**.
+**Free and open source** Docker deployment for Counter-Strike 1.6 dedicated servers supporting **multiple gamemodes**
 
-**Requirements:** Docker with Compose, **x86_64** host (or Docker Desktop with **linux/amd64** emulation). **Steam and non‑Steam** clients can join when ReUnion + `secure 0` are in effect (see **`reunion.cfg`** baked into the image).
+**Included out of the box:** classic **respawn / deathmatch** and **Zombie Mod Classic — Biohazard** infection with:
+- **lasermines** 
+- napalm/freeze grenades 
+- custom maps download script
+- and FastDL for faster download times when connecting to server. 
+
+**Other gamemodes** can be added by baking another `server.cfg` / `plugins.ini` profile in the [`Dockerfile`](Dockerfile) and a Compose service (same pattern as Biohazard). Feel free to fork this repo and add yours. Contribute by opening a PR.
+
+This image comes with:
+
+| Layer | Components | License (upstream) |
+|-------|------------|-------------------|
+| Engine | [ReHLDS](https://github.com/rehlds/ReHLDS) | GPLv3 |
+| Game DLL | [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS) | GPLv3 / project license |
+| Metamod | [Metamod-R](https://github.com/rehlds/Metamod-R) | GPLv3 |
+| API | [ReAPI](https://github.com/rehlds/ReAPI) | GPLv3 |
+| Auth | [ReUnion](https://github.com/rehlds/ReUnion) | GPLv3 |
+| Modding | [AMX Mod X 1.9](https://github.com/alliedmodders/amxmodx) | GPLv3 |
+| Infection mod | [Biohazard](https://forums.alliedmods.net/showthread.php?t=68523) + this repo’s ports | GPLv2+ |
+| Lasermines | [Amxx-Laser-TripMine-Entity](https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity) (Biohazard build) | See upstream |
+
+**Repository licensing:** Original work in this repository (Dockerfiles, Compose files, scripts, configs, and plugin sources authored here) is licensed under **[GPL-3.0-or-later](LICENSE)**.
+
+Upstream components listed above retain their own licenses. **Game assets** (maps, models, sounds, WADs, and similar content downloaded at build/runtime or supplied separately) are **not** covered by this repository’s license and remain subject to **[Valve](https://store.steampowered.com/subscriber_agreement/)** or other third-party terms. You must obtain and use those assets in compliance with the applicable agreements.
+
+**Security-oriented defaults** (see [Ports and security](#ports-and-security)):
+
+- Game containers run as non-root **`steam`**, **`read_only`** rootfs, **`cap_drop: ALL`**, **`no-new-privileges`**, and **`init: true`** (tini).
+- Writable state is limited to named volumes (maps, logs, AMXX data, etc.); configs/plugins are baked from git.
+- Biohazard profile optional **internal network** (no container internet egress) plus optional host **`biohazard-egress-firewall.sh`** rules.
+- **`secure 0`** / **`reunion.cfg`** for controlled mixed Steam and non-Steam clients (not VAC-secured — change before public internet exposure).
+- Change **`RCON_PASSWORD`** in **`.env`**; firewall published UDP/TCP ports.
+
+**Requirements:** Docker with Compose, **x86_64** host (or Docker Desktop with **linux/amd64** emulation).
 
 ---
 
@@ -34,6 +67,46 @@ This stack runs a **Counter-Strike 1.6** dedicated server from a **multi-stage D
    ```bash
    docker compose logs -f
    ```
+
+---
+
+## Contents
+
+- [ReHLDS stack versions](#rehlds-stack-versions)
+- [Configuration](#configuration)
+  - [Server name, game mode, welcome text, and announcements](#server-name-game-mode-welcome-text-and-announcements)
+  - [Respawn and teams](#respawn-and-teams)
+  - [Maps, downloadable extras, and FastDL](#maps-downloadable-extras-datacs16-game-assets-fastdl)
+  - [Lasermines (Biohazard humans)](#lasermines-biohazard-humans)
+  - [Zombie night vision](#zombie-night-vision)
+  - [Map brightness and flashlights (Biohazard)](#map-brightness-and-flashlights-biohazard)
+  - [Survivor ammo (`bh_ammo`)](#survivor-ammo-bh_ammo)
+  - [Frost / napalm grenades (Biohazard ports)](#frost--napalm-grenades-zp50-derived-biohazard-ports)
+  - [FastDL (faster first-join downloads)](#fastdl-faster-first-join-downloads)
+- [Biohazard / old-school infection (optional profile)](#biohazard--old-school-infection-optional-profile)
+  - [Biohazard AMXX plugin (included)](#1-biohazard-amxx-plugin-included)
+  - [Compiling plugins locally (optional)](#2-compiling-plugins-locally-optional)
+  - [Start the Biohazard server](#3-start-the-biohazard-server)
+  - [RCON: infect a player or end the round (Biohazard)](#rcon-infect-a-player-or-end-the-round-biohazard)
+  - [Other zombie / ReAPI stacks (not in this image)](#4-other-zombie--reapi-stacks-not-in-this-image)
+- [Managing the server (Docker)](#managing-the-server-docker)
+- [RCON (remote console)](#rcon-remote-console)
+  - [GoldSrc vs Source (important)](#goldsrc-vs-source-important)
+  - [From the CS 1.6 game client (simplest)](#from-the-cs-16-game-client-simplest)
+  - [From the host without the game (UDP GoldSrc RCON)](#from-the-host-without-the-game-udp-goldsrc-rcon)
+  - [Useful server commands](#useful-server-commands-via-rcon--or-server-console)
+  - [Respawn and deathmatch (RCON)](#respawn-and-deathmatch-rcon)
+  - [Map voting (stock AMXX)](#map-voting-stock-amxx)
+- [Using AMX Mod X (AMXX)](#using-amx-mod-x-amxx)
+  - [Make yourself an admin](#1-make-yourself-an-admin)
+  - [In-game (as an admin)](#2-in-game-as-an-admin)
+  - [Server console / RCON](#3-server-console--rcon)
+  - [Adding or disabling plugins](#4-adding-or-disabling-plugins)
+- [Metamod, ReUnion, and AMX Mod X](#metamod-reunion-and-amx-mod-x)
+- [Ports and security](#ports-and-security)
+  - [Container hardening](#container-hardening-cs16-cs16-biohazard)
+  - [Biohazard egress lockdown](#biohazard-egress-lockdown-cs16-biohazard)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -679,9 +752,4 @@ Rules live in iptables chain **`CS16-BIOHAZARD-EGRESS`**, jumped from **`DOCKER-
 
 ---
 
-## Credits
 
-- HLDS build recipe: [BLSAlin/rehlds-cstrike](https://github.com/BLSAlin/rehlds-cstrike) (vendored in **`Dockerfile`** stage **`hlds-base`**)  
-- Non‑Steam / mixed auth: [ReUnion](https://github.com/rehlds/ReUnion)  
-- Respawn behaviour: [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS)  
-- Classic zombie infection mod: [Biohazard v2.00 Beta 3b — AlliedModders](https://forums.alliedmods.net/showthread.php?t=68523)  
