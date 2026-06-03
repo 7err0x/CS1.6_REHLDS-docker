@@ -2,7 +2,7 @@
 # Smoke-test cs16-entrypoint.sh on a read-only root (matches compose security).
 set -euo pipefail
 
-IMAGE="${CS16_TEST_IMAGE:-cs16-respawn:latest}"
+IMAGE="${CS16_TEST_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}"
 ENTRYPOINT="${CS16_ENTRYPOINT_SCRIPT:-$(dirname "$0")/cs16-entrypoint.sh}"
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then

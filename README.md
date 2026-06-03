@@ -136,8 +136,8 @@ docker compose --profile biohazard up -d --force-recreate
 Enable **Actions** and set the package visibility to **public** (or use a PAT with **`read:packages`** to pull). Example **`.env`**:
 
 ```bash
-CS16_RESPAWN_IMAGE=ghcr.io/your-user/cs16-respawn:3.15.0.896
-CS16_BIOHAZARD_IMAGE=ghcr.io/your-user/cs16-biohazard:3.15.0.896
+CS16_RESPAWN_IMAGE=ghcr.io/7err0x/cs16-respawn:latest
+CS16_BIOHAZARD_IMAGE=ghcr.io/7err0x/cs16-biohazard:latest
 ```
 
 Manual rebuild: **Actions → Build and push to GHCR → Run workflow** (optional **force** to republish an existing ReHLDS tag).
@@ -728,7 +728,7 @@ docker compose build cs16-biohazard
 docker compose --profile biohazard up -d --force-recreate
 ```
 
-**Respawn** and **Biohazard** are separate images (**`cs16-respawn:latest`**, **`cs16-biohazard:latest`**) with different **`CS16_SERVER_CONFIG`** / **`CS16_PLUGINS_INI`** build args.
+**Respawn** and **Biohazard** are separate images (**`ghcr.io/7err0x/cs16-respawn:latest`**, **`ghcr.io/7err0x/cs16-biohazard:latest`**) with different **`CS16_SERVER_CONFIG`** / **`CS16_PLUGINS_INI`** build args.
 
 **Logs:** HLDS writes **`L*.log`** under **`data/cs16-logs/respawn/`** and **`data/cs16-logs/biohazard/`** (relative to the repo; created on first **`cs16-state-init`**). Container stdout: **`docker compose logs -f cs16`** / **`cs16-biohazard`**. Optional host logrotate: **`sudo ./docker/install-logrotate.sh`** (defaults to **`$REPO_ROOT/data/cs16-logs`**).
 

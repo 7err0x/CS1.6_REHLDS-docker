@@ -1,5 +1,5 @@
 FastDL is served by the Docker image built from docker/fastdl/Dockerfile.
-It copies from the SAME game image tag (CS16_IMAGE_NAME / cs16-respawn:latest):
+It copies from the SAME game image tag (CS16_BIOHAZARD_IMAGE / ghcr.io/7err0x/cs16-biohazard:latest):
   maps/  models/  sound/  sprites/  gfx/  resource/  overviews/  (if present)
   plus *.wad in cstrike root (e.g. de_vegas.wad).
 

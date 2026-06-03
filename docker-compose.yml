@@ -182,7 +182,7 @@ services:
     volumes:
       - cs16-state:/var/cs16/state
       - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs
-    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
+    image: ${CS16_RESPAWN_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}
     profiles:
       - respawn
       - biohazard
@@ -209,7 +209,7 @@ services:
         <<: *cs16_build_args
         CS16_SERVER_CONFIG: server.cfg
         CS16_PLUGINS_INI: plugins-respawn.ini
-    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
+    image: ${CS16_RESPAWN_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}
     container_name: cs16-respawn0
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
@@ -230,7 +230,7 @@ services:
         CS16_SERVER_CONFIG: server-biohazard.cfg
         CS16_PLUGINS_INI: plugins-biohazard.ini
         CS16_MAPS_INI: maps-biohazard.ini
-    image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
+    image: ${CS16_BIOHAZARD_IMAGE:-ghcr.io/7err0x/cs16-biohazard:latest}
     container_name: cs16-biohazard0
     ports:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
@@ -246,7 +246,7 @@ services:
       context: .
       dockerfile: docker/fastdl/Dockerfile
       args:
-        GAME_IMAGE: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
+        GAME_IMAGE: ${CS16_BIOHAZARD_IMAGE:-ghcr.io/7err0x/cs16-biohazard:latest}
     image: ${FASTDL_IMAGE_NAME:-cs16-fastdl:latest}
     container_name: cs16-fastdl0
     restart: unless-stopped

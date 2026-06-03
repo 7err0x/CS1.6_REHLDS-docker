@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 # Serves a GoldSrc-style tree (maps/, sound/, …): baked game image + optional extras volume at runtime.
-ARG GAME_IMAGE=cs16-respawn:latest
+ARG GAME_IMAGE=ghcr.io/7err0x/cs16-biohazard:latest
 FROM ${GAME_IMAGE} AS game
 
 FROM nginx:alpine
