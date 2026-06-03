@@ -1,36 +1,267 @@
+# HLDS merges optional community assets from ./data/cs16-game-assets at start.
+# Configs are baked into the image (cstrike/ in repo → Dockerfile COPY).
+# Writable runtime state: cs16-state volume (subpaths); logs and game assets under ./data/.
+x-cs16-entrypoint: &cs16_entrypoint
+  - "/usr/local/sbin/cs16-entrypoint.sh"
+
+x-cs16-security: &cs16_security
+  init: true
+  read_only: true
+  user: steam
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:mode=1777,size=64m
+    - /run:mode=755,size=8m
+    - /opt/steam/.steam:mode=1777,size=64k
+
+x-cs16-build-common: &cs16_build_common
+  context: .
+  dockerfile: Dockerfile
+  target: cs16
+
+x-cs16-build-args: &cs16_build_args
+  REHLDS_BUILD: ${REHLDS_BUILD:-3.15.0.896}
+  METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.149}
+  REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.30.0.814}
+  REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
+  AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
+  AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
+  LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
+  REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
+
+x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/banned.cfg
+    volume:
+      subpath: hlds-meta/banned.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/listip.cfg
+    volume:
+      subpath: hlds-meta/listip.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/config.cfg
+    volume:
+      subpath: hlds-meta-respawn/config.cfg
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/respawn:/opt/steam/hlds/cstrike/logs
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
+    volume:
+      subpath: amxx-data-respawn/vault
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/maps
+    volume:
+      subpath: maps
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sound
+    volume:
+      subpath: sound
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/models
+    volume:
+      subpath: models
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sprites
+    volume:
+      subpath: sprites
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/wads
+    volume:
+      subpath: wads
+
+x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/banned.cfg
+    volume:
+      subpath: hlds-meta/banned.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/listip.cfg
+    volume:
+      subpath: hlds-meta/listip.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/config.cfg
+    volume:
+      subpath: hlds-meta-biohazard/config.cfg
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
+    volume:
+      subpath: amxx-data-biohazard/vault
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/maps
+    volume:
+      subpath: maps
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sound
+    volume:
+      subpath: sound
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/models
+    volume:
+      subpath: models
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sprites
+    volume:
+      subpath: sprites
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/wads
+    volume:
+      subpath: wads
+
+x-cs16-server-common: &cs16_server_common
+  <<: *cs16_security
+  entrypoint: *cs16_entrypoint
+  depends_on:
+    cs16-state-init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+  platform: linux/amd64
+  working_dir: /opt/steam/hlds
+x-cs16-respawn-cmd: &cs16_respawn_cmd
+  - "./hlds_run"
+  - "-timeout 3"
+  - "-pingboost 1"
+  - "-game cstrike"
+  - "+exec"
+  - "config/gamemode-respawn.cfg"
+  - "+maxplayers"
+  - "${MAX_PLAYERS:-16}"
+  - "+rcon_password"
+  - "${RCON_PASSWORD:-changeme}"
+  - "+hostname"
+  - "${SERVER_HOSTNAME:-Respawn-OpenSource}"
+  - "+log"
+  - "on"
+  - "+map"
+  - "${START_MAP:-fy_snow}"
+
+x-cs16-biohazard-cmd: &cs16_biohazard_cmd
+  - "./hlds_run"
+  - "-timeout 3"
+  - "-pingboost 1"
+  - "-game cstrike"
+  - "+exec"
+  - "config/gamemode-biohazard.cfg"
+  - "+maxplayers"
+  - "${MAX_PLAYERS:-16}"
+  - "+rcon_password"
+  - "${BIOHAZARD_RCON_PASSWORD:-changeme}"
+  - "+hostname"
+  - "${BIOHAZARD_SERVER_HOSTNAME:-ZombieMod-Biohazard-OpenSource}"
+  - "+log"
+  - "on"
+  - "+map"
+  - "${BIOHAZARD_START_MAP:-cs_estate}"
+
 services:
-  cs16:
+  cs16-state-init:
+    user: "0:0"
+    entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
+    volumes:
+      - cs16-state:/var/cs16/state
+      - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs
+    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
+    profiles:
+      - respawn
+      - biohazard
+    restart: "no"
+    container_name: cs16-state-init0
+
+  download-game-assets:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/game-assets/Dockerfile
+    image: ${CS16_DOWNLOAD_ASSETS_IMAGE:-cs16-download-game-assets:latest}
+    profiles:
+      - download-assets
+    volumes:
+      - ./data/cs16-game-assets:/out
+
+  cs16:
+    <<: *cs16_server_common
+    profiles:
+      - respawn
+    build:
+      <<: *cs16_build_common
       args:
-        HLDS_BASE_IMAGE: ${HLDS_BASE_IMAGE:-ghcr.io/blsalin/rehlds-cstrike:edge}
-        AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
-    image: ${CS16_IMAGE_NAME:-cs16-respawn:latest}
+        <<: *cs16_build_args
+        CS16_SERVER_CONFIG: server.cfg
+        CS16_PLUGINS_INI: plugins-respawn.ini
+    image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
     container_name: cs16-respawn0
-    restart: unless-stopped
-    platform: linux/amd64
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
+    command: *cs16_respawn_cmd
+    volumes: *cs16_runtime_volumes_respawn
+#    networks:
+#      - isolated
+
+  cs16-biohazard:
+    <<: *cs16_server_common
+    profiles:
+      - biohazard
+    build:
+      <<: *cs16_build_common
+      args:
+        <<: *cs16_build_args
+        CS16_SERVER_CONFIG: server-biohazard.cfg
+        CS16_PLUGINS_INI: plugins-biohazard.ini
+        CS16_MAPS_INI: maps-biohazard.ini
+    image: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
+    container_name: cs16-biohazard0
+    ports:
+      - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
+      - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
+    command: *cs16_biohazard_cmd
+    volumes: *cs16_runtime_volumes_biohazard
+#    networks:
+#      - isolated
+
+  fastdl:
+    init: true
+    build:
+      context: .
+      dockerfile: docker/fastdl/Dockerfile
+      args:
+        GAME_IMAGE: ${CS16_BIOHAZARD_IMAGE:-cs16-biohazard:latest}
+    image: ${FASTDL_IMAGE_NAME:-cs16-fastdl:latest}
+    container_name: cs16-fastdl0
+    restart: unless-stopped
+    platform: linux/amd64
+    ports:
+      - "${FASTDL_HTTP_PORT:-8080}:80/tcp"
+    environment:
+      CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
-      # Merged into the image cstrike tree; server.cfg chain loads config/server.cfg last.
-      - ./cstrike/config:/opt/steam/hlds/cstrike/config:ro
-      # AMXX admins (edit on host; see README). Matches image default baked at build time.
-      - ./cstrike/amxmodx/users.ini:/opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini:ro
-      # Optional: custom ReUnion rules (cid_* / AuthVersion). Copy defaults from the image first.
-      # - ./cstrike/reunion.cfg:/opt/steam/hlds/cstrike/reunion.cfg:ro
-      # If a map needs a missing texture WAD, copy it from your Steam cstrike folder and uncomment:
-      # - ./cstrike/de_vegas.wad:/opt/steam/hlds/cstrike/de_vegas.wad:ro
-    # Appended after the image ENTRYPOINT (hlds_run ... +map de_dust2). Last +map wins.
-    command:
-      - "+maxplayers"
-      - "${MAX_PLAYERS:-16}"
-      - "+rcon_password"
-      - "${RCON_PASSWORD:-changeme}"
-      - "+hostname"
-      - "${SERVER_HOSTNAME:-CS16-Respawn-Docker}"
-      - "+log"
-      - "on"
-      - "+map"
-      - "${START_MAP:-fy_iceworld}"
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+
+networks:
+  isolated:
+    name: cs16-internal-network
+    internal: true
+
+volumes:
+  cs16-state:

@@ -1,0 +1,38 @@
+# -----------------------------------------------------------------------------
+# External CS 1.6 / GoldSrc payloads for data/cs16-game-assets/ (mounted into
+# HLDS + FastDL). One direct download URL per line. Lines starting with # are skipped.
+#
+# GameBanana (https://gamebanana.com) does not expose a stable public API here.
+# Use the site’s file download link (often files.gamebanana.com / CDN) so curl
+# receives the real archive bytes — same idea as AlliedModders file hosts.
+#
+# Supported archives after redirect: .rar (unrar-free), .zip (unzip), .7z optional.
+# Installer mirrors anything under extracted **models/** and **sprites/** into the
+# volume (HL2GO ZM packs often ship custom .mdl / .spr beside the BSP).
+#
+# -----------------------------------------------------------------------------
+# HL2GO RAR packs (run compose profile download-assets before zm_* rotations).
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_long_night_v2/?download=15233
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_silent_hill/?download=14968
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toronto/?download=15628
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_assault_night/?download=14738
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_inferno/?download=15543
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_office/?download=16498
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_dust/?download=16238
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_ice_attack/?download=16558
+https://hl2go.com/downloads/cs1-6/maps/de_/de_darkrats/?download=11617
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_school/?download=15983
+https://filecache47.gamebanana.com/mods/dust2_apocalypse.rar
+https://filecache43.gamebanana.com/mods/zm_zombust.rar
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_minecraft_v2/?download=15648
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toxic_house2/?download=16003
+
+# respawn classic
+https://hl2go.com/downloads/cs1-6/maps/fy_/fy_pool_day/?download=6610
+https://hl2go.com/downloads/cs1-6/maps/fy_/fy_snow/?download=6435
+https://hl2go.com/downloads/cs1-6/maps/aim_/aim_map/?download=3684
+https://hl2go.com/downloads/cs1-6/maps/de_/de_westwood/?download=12625
+https://hl2go.com/downloads/cs1-6/maps/awp_/awp_india_ks/?download=7809
+#
+# Example GameBanana-style direct URLs (replace with URLs from the mod File page):
+# https://files.gamebanana.com/get.php?...your-file.zip

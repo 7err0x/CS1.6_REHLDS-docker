@@ -1,0 +1,19 @@
+// zm_* BSPs live in ./data/cs16-game-assets/maps/ — populate via compose profile download-assets (see README).
+// Dark / night ZM maps + stock indoor + arenas.
+cs_estate
+zm_inferno
+zm_ice_attack
+zm_toronto
+zm_toxic_house2
+zm_dust
+zm_dust2_apocalypse
+zm_minecraft_v2
+zm_assault_night
+zm_zombust
+zm_silent_hill
+zm_school
+zm_office
+de_darkrats
+zm_long_night_v2
+cs_militia
+
