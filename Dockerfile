@@ -64,7 +64,7 @@ ARG REAPI_URL="https://github.com/rehlds/ReAPI/releases/download/${REAPI_VERSION
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-ENV CPU_MHZ=2300
+ENV CPU_MHZ=3200
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
