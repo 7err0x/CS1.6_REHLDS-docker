@@ -49,11 +49,7 @@ x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
     target: /opt/steam/hlds/cstrike/config.cfg
     volume:
       subpath: hlds-meta-respawn/config.cfg
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/logs
-    volume:
-      subpath: logs
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/respawn:/opt/steam/hlds/cstrike/logs
   - type: volume
     source: cs16-state
     target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
@@ -102,11 +98,7 @@ x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
     target: /opt/steam/hlds/cstrike/config.cfg
     volume:
       subpath: hlds-meta-biohazard/config.cfg
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/logs
-    volume:
-      subpath: logs
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs
   - type: volume
     source: cs16-state
     target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
@@ -189,6 +181,7 @@ services:
     entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
     volumes:
       - cs16-state:/var/cs16/state
+      - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs
     image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
     profiles:
       - respawn

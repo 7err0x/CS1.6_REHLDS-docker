@@ -30,7 +30,7 @@ Upstream components listed above retain their own licenses. **Game assets** (map
 **Security-oriented defaults** (see [Ports and security](#ports-and-security)):
 
 - Game containers run as non-root **`steam`**, **`read_only`** rootfs, **`cap_drop: ALL`**, **`no-new-privileges`**, and **`init: true`** (tini).
-- Writable state is limited to named volumes (maps, logs, AMXX data, etc.); configs/plugins are baked from git.
+- Writable state uses named volumes (maps, bans, AMXX vault, etc.) plus host **`CS16_LOGS_HOST_DIR`** for HLDS log files; configs/plugins are baked from git.
 - Biohazard profile optional **internal network** (no container internet egress) plus optional host **`biohazard-egress-firewall.sh`** rules.
 - **`secure 0`** / **`reunion.cfg`** for controlled mixed Steam and non-Steam clients (not VAC-secured — change before public internet exposure).
 - Change **`RCON_PASSWORD`** in **`.env`**; firewall published UDP/TCP ports.
@@ -697,14 +697,14 @@ Both game services use:
 |--------|--------|
 | **`user: steam`** | Process runs as the image **`steam`** user (not root). |
 | **`init: true`** | Tiny init (**tini**) reaps zombie processes from **`hlds_run`**. |
-| **`read_only: true`** | Root filesystem is read-only; named volumes hold runtime writes. |
+| **`read_only: true`** | Root filesystem is read-only; volumes and host log bind mounts hold runtime writes. |
 | **`cap_drop: [ALL]`** | Drops Linux capabilities (game port **27015** is unprivileged inside the container). |
 | **`security_opt: no-new-privileges:true`** | Blocks privilege escalation via setuid binaries. |
 | **`tmpfs`** | Writable **`/tmp`** and **`/run`**. |
 
 **Writable named volumes** (created automatically on first **`docker compose up`** — no host **`mkdir`** / **`chmod`**):
 
-**`cs16-game-assets`** (community maps/sounds/WADs), **`cs16-logs`**, **`cs16-maps`**, **`cs16-sound`**, **`cs16-models`**, **`cs16-sprites`**, **`cs16-wads`**, **`cs16-amxx-data`**, **`cs16-steam-home`**, **`cs16-{banned,listip,config}-cfg`**.
+**`cs16-game-assets`** (community maps/sounds/WADs), **`cs16-state`** (maps, bans, per-profile **`config.cfg`**, AMXX vault, etc.). **HLDS log files** are on the host under **`./data/cs16-logs`** (override with **`CS16_LOGS_HOST_DIR`** in **`.env`**), with **`respawn/`** and **`biohazard/`** subdirs — paths are relative to the Compose project directory (repo root when you **`cd`** there before **`docker compose`**).
 
 **Configs and plugins** are **baked into the image** from **`cstrike/`** and **`image/zombiemod/`** (edit in git, then **`docker compose build`**). Populate **`cs16-game-assets`** with:
 
@@ -716,7 +716,7 @@ docker compose --profile biohazard up -d --force-recreate
 
 **Respawn** and **Biohazard** are separate images (**`cs16-respawn:latest`**, **`cs16-biohazard:latest`**) with different **`CS16_SERVER_CONFIG`** / **`CS16_PLUGINS_INI`** build args.
 
-**Logs:** default path is Docker volume **`cs16-logs`**. Inspect with **`docker compose logs`**, or **`docker run --rm -v cs16docker_cs16-logs:/logs:ro alpine ls /logs`** (volume name may be prefixed by the project name). Optional host logrotate: bind **`./data/cs16-logs`** over **`cs16-logs`** in a local override file if you prefer files on disk.
+**Logs:** HLDS writes **`L*.log`** under **`data/cs16-logs/respawn/`** and **`data/cs16-logs/biohazard/`** (relative to the repo; created on first **`cs16-state-init`**). Container stdout: **`docker compose logs -f cs16`** / **`cs16-biohazard`**. Optional host logrotate: **`sudo ./docker/install-logrotate.sh`** (defaults to **`$REPO_ROOT/data/cs16-logs`**).
 
 ### Biohazard egress lockdown (`cs16-biohazard`)
 

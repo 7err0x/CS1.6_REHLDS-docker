@@ -12,7 +12,6 @@ mkdir -p \
 	"${STATE}/hlds-meta-biohazard" \
 	"${STATE}/amxx-data-respawn/vault" \
 	"${STATE}/amxx-data-biohazard/vault" \
-	"${STATE}/logs" \
 	"${STATE}/amxx-data" \
 	"${STATE}/maps" \
 	"${STATE}/sound" \
@@ -91,5 +90,11 @@ for profile in respawn biohazard; do
 		: >"$target"
 	fi
 done
+
+if [[ -d /host/cs16-logs ]]; then
+	mkdir -p /host/cs16-logs/respawn /host/cs16-logs/biohazard
+	chown -R steam:steam /host/cs16-logs
+	echo "[cs16-state-init] Host logs: /host/cs16-logs/{respawn,biohazard}"
+fi
 
 chown -R steam:steam "$STATE"

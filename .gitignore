@@ -4,3 +4,7 @@
 # Optional local folder for manual map staging (not mounted by default).
 data/cs16-game-assets/**
 !data/cs16-game-assets/README.txt
+
+# HLDS log files (bind-mounted at runtime).
+data/cs16-logs/**
+!data/cs16-logs/README.txt

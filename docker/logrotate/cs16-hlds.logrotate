@@ -1,5 +1,6 @@
 # HLDS console logs (host path substituted by docker/install-logrotate.sh).
-@CS16_LOG_DIR@/L*.log @CS16_LOG_DIR@/*.log {
+@CS16_LOG_DIR@/respawn/L*.log @CS16_LOG_DIR@/respawn/*.log \
+@CS16_LOG_DIR@/biohazard/L*.log @CS16_LOG_DIR@/biohazard/*.log {
     daily
     rotate 14
     compress
