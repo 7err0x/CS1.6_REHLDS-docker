@@ -9,6 +9,7 @@ chmod +x amxxpc
 PACK=(
 	lasermine.sma
 	biohazard.sma
+	bio_crosshair_id.sma
 	customflashlight.sma
 	bio_antiblock.sma
 	bio_boatescape.sma
