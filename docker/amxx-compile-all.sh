@@ -7,6 +7,7 @@ cd "${AMXX_SCRIPTING_DIR:-/amxx-kit/addons/amxmodx/scripting}"
 chmod +x amxxpc
 
 PACK=(
+	respawn_defaults.sma
 	lasermine.sma
 	biohazard.sma
 	bio_crosshair_id.sma

@@ -32,7 +32,7 @@ x-cs16-build-args: &cs16_build_args
   LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
   REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
 
-x-cs16-runtime-volumes: &cs16_runtime_volumes
+x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
   - cs16-game-assets:/mnt/cs16-game-assets:ro
   - type: volume
     source: cs16-state
@@ -48,7 +48,7 @@ x-cs16-runtime-volumes: &cs16_runtime_volumes
     source: cs16-state
     target: /opt/steam/hlds/cstrike/config.cfg
     volume:
-      subpath: hlds-meta/config.cfg
+      subpath: hlds-meta-respawn/config.cfg
   - type: volume
     source: cs16-state
     target: /opt/steam/hlds/cstrike/logs
@@ -56,9 +56,62 @@ x-cs16-runtime-volumes: &cs16_runtime_volumes
       subpath: logs
   - type: volume
     source: cs16-state
-    target: /opt/steam/hlds/cstrike/addons/amxmodx/data
+    target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
     volume:
-      subpath: amxx-data
+      subpath: amxx-data-respawn/vault
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/maps
+    volume:
+      subpath: maps
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sound
+    volume:
+      subpath: sound
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/models
+    volume:
+      subpath: models
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/sprites
+    volume:
+      subpath: sprites
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/wads
+    volume:
+      subpath: wads
+
+x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
+  - cs16-game-assets:/mnt/cs16-game-assets:ro
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/banned.cfg
+    volume:
+      subpath: hlds-meta/banned.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/listip.cfg
+    volume:
+      subpath: hlds-meta/listip.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/config.cfg
+    volume:
+      subpath: hlds-meta-biohazard/config.cfg
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/logs
+    volume:
+      subpath: logs
+  - type: volume
+    source: cs16-state
+    target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
+    volume:
+      subpath: amxx-data-biohazard/vault
   - type: volume
     source: cs16-state
     target: /opt/steam/hlds/cstrike/maps
@@ -94,13 +147,13 @@ x-cs16-server-common: &cs16_server_common
   restart: unless-stopped
   platform: linux/amd64
   working_dir: /opt/steam/hlds
-  volumes: *cs16_runtime_volumes
-
 x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "./hlds_run"
   - "-timeout 3"
   - "-pingboost 1"
   - "-game cstrike"
+  - "+exec"
+  - "config/gamemode-respawn.cfg"
   - "+maxplayers"
   - "${MAX_PLAYERS:-16}"
   - "+rcon_password"
@@ -162,13 +215,14 @@ services:
       args:
         <<: *cs16_build_args
         CS16_SERVER_CONFIG: server.cfg
-        CS16_PLUGINS_INI: ""
+        CS16_PLUGINS_INI: plugins-respawn.ini
     image: ${CS16_RESPAWN_IMAGE:-cs16-respawn:latest}
     container_name: cs16-respawn0
     ports:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
     command: *cs16_respawn_cmd
+    volumes: *cs16_runtime_volumes_respawn
 #    networks:
 #      - isolated
 
@@ -189,8 +243,9 @@ services:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
     command: *cs16_biohazard_cmd
-    networks:
-      - isolated
+    volumes: *cs16_runtime_volumes_biohazard
+#    networks:
+#      - isolated
 
   fastdl:
     init: true

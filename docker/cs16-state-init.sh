@@ -8,6 +8,10 @@ CSTRIKE="${CSTRIKE_ROOT:-/opt/steam/hlds/cstrike}"
 
 mkdir -p \
 	"${STATE}/hlds-meta" \
+	"${STATE}/hlds-meta-respawn" \
+	"${STATE}/hlds-meta-biohazard" \
+	"${STATE}/amxx-data-respawn/vault" \
+	"${STATE}/amxx-data-biohazard/vault" \
 	"${STATE}/logs" \
 	"${STATE}/amxx-data" \
 	"${STATE}/maps" \
@@ -32,8 +36,28 @@ seed_dir_if_empty() {
 	touch "$marker"
 }
 
-for subdir in maps sound models sprites wads amxx-data; do
+for subdir in maps sound models sprites wads; do
 	seed_dir_if_empty "$subdir"
+done
+
+seed_amxx_vault() {
+	local profile=$1
+	local dest="${STATE}/amxx-data-${profile}/vault"
+	local src="${BOOTSTRAP}/amxx-data/vault"
+	local marker="${dest}/.seeded-from-image"
+
+	[[ -d "$src" ]] || return 0
+	if [[ -n "$(find "$dest" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+		return 0
+	fi
+	echo "[cs16-state-init] Seeding amxx-data-${profile}/vault (first start only)..."
+	mkdir -p "$dest"
+	tar -C "$src" -cf - . | tar -C "$dest" --no-same-owner --no-same-permissions -xf -
+	touch "$marker"
+}
+
+for profile in respawn biohazard; do
+	seed_amxx_vault "$profile"
 done
 
 for cfg in banned.cfg listip.cfg config.cfg; do
@@ -47,6 +71,22 @@ for cfg in banned.cfg listip.cfg config.cfg; do
 	fi
 	if [[ -f "${CSTRIKE}/${cfg}" ]]; then
 		cp "${CSTRIKE}/${cfg}" "$target"
+	else
+		: >"$target"
+	fi
+done
+
+for profile in respawn biohazard; do
+	target="${STATE}/hlds-meta-${profile}/config.cfg"
+	if [[ -f "$target" ]]; then
+		continue
+	fi
+	if [[ -d "$target" ]]; then
+		echo "[cs16-state-init] removing invalid directory ${target}" >&2
+		rm -rf "$target"
+	fi
+	if [[ -f "${CSTRIKE}/config.cfg" ]]; then
+		cp "${CSTRIKE}/config.cfg" "$target"
 	else
 		: >"$target"
 	fi

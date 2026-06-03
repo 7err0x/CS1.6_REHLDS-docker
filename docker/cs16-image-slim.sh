@@ -42,8 +42,9 @@ done
 if [[ -d "${CSTRIKE}/wads" ]]; then
 	find "${CSTRIKE}/wads" -mindepth 1 -delete
 fi
-if [[ -d "${CSTRIKE}/addons/amxmodx/data" ]]; then
-	find "${CSTRIKE}/addons/amxmodx/data" -mindepth 1 -delete
+# Keep lang/gamedata in the image; only vault is persisted on the cs16-state volume.
+if [[ -d "${CSTRIKE}/addons/amxmodx/data/vault" ]]; then
+	find "${CSTRIKE}/addons/amxmodx/data/vault" -mindepth 1 -delete
 fi
 
 echo "[cs16-image-slim] Removing AMXX build artifacts..."

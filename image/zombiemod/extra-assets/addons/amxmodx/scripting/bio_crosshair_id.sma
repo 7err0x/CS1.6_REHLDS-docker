@@ -1,17 +1,13 @@
 /*
- * [BH] Crosshair player name — replaces ReGameDLL "spotted ally/enemy" hints and
+ * Crosshair player name — replaces ReGameDLL "spotted ally/enemy" hints and
  * the lower-left status-bar name with the target's name centered under the crosshair.
+ * Works on respawn (CT/T colors) and Biohazard (zombie colors when biohazard.amxx is loaded).
  */
 #include <amxmodx>
 #include <cstrike>
-#tryinclude <biohazard>
-
-#if defined _biohazard_included
-	#pragma reqlib "biohazardf"
-#endif
 
 #define PLUGIN "[BH] Crosshair name"
-#define VERSION "1.0"
+#define VERSION "1.1"
 #define AUTHOR "cs16docker"
 
 new g_msgHudTextArgs
@@ -19,6 +15,7 @@ new g_msgStatusText
 new cvar_enable
 new cvar_dist
 new Float:g_next_hud[33]
+new g_fn_is_user_zombie = -1
 
 public plugin_init()
 {
@@ -53,6 +50,34 @@ stock bh_apply_playerid_off()
 
 	if (pcv)
 		set_pcvar_num(pcv, 2)
+}
+
+stock bool:bh_infection_mod_active()
+{
+	if (!cvar_exists("bh_enabled"))
+		return false
+
+	return (get_cvar_num("bh_enabled") != 0)
+}
+
+stock bool:bh_is_user_zombie(id)
+{
+	if (g_fn_is_user_zombie == -1)
+	{
+		new plug = find_plugin_byfile("biohazard.amxx")
+		if (plug != -1)
+			g_fn_is_user_zombie = get_func_id("is_user_zombie", plug)
+	}
+
+	if (g_fn_is_user_zombie == -1)
+		return false
+
+	if (callfunc_begin_i(g_fn_is_user_zombie) != 1)
+		return false
+
+	callfunc_push_int(id)
+
+	return (callfunc_end() != 0)
 }
 
 public msg_HudTextArgs(msgid, dest, id)
@@ -95,11 +120,7 @@ public task_crosshair_id()
 	static id, target, body, name[32]
 	static bool:bh_active, bool:viewer_zombie, bool:target_zombie
 
-#if defined _biohazard_included
-	bh_active = (is_biomod_active() != 0)
-#else
-	bh_active = false
-#endif
+	bh_active = bh_infection_mod_active()
 
 	for (id = 1; id <= get_maxplayers(); id++)
 	{
@@ -121,8 +142,8 @@ public task_crosshair_id()
 
 		if (bh_active)
 		{
-			viewer_zombie = (is_user_zombie(id) != 0)
-			target_zombie = (is_user_zombie(target) != 0)
+			viewer_zombie = bh_is_user_zombie(id)
+			target_zombie = bh_is_user_zombie(target)
 
 			if (viewer_zombie == target_zombie)
 			{

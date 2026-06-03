@@ -171,8 +171,10 @@ RUN bash -c 'shopt -s nullglob; for f in /tmp/zombie-extra/*.amxx; do cp -v "$f"
 COPY --from=amxx-build /amxx-kit/addons/amxmodx/scripting/*.amxx \
     /opt/steam/hlds/cstrike/addons/amxmodx/plugins/
 
-COPY image/zombiemod/plugins-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins-biohazard.ini
-COPY image/zombiemod/maps-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps-biohazard.ini
+# Profile lists live under profiles/ — AMXX auto-loads every configs/plugins-*.ini (not only plugins.ini).
+COPY image/zombiemod/plugins-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/plugins-biohazard.ini
+COPY image/zombiemod/plugins-respawn.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/plugins-respawn.ini
+COPY image/zombiemod/maps-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/maps-biohazard.ini
 
 COPY image/zombiemod/extra-assets/ /tmp/zombie-assets/
 RUN bash -c 'shopt -s nullglob; for p in /tmp/zombie-assets/*; do \
@@ -207,18 +209,26 @@ RUN if [[ "$CS16_SERVER_CONFIG" != "server.cfg" ]]; then \
       cp "/opt/steam/hlds/cstrike/config/${CS16_SERVER_CONFIG}" \
          /opt/steam/hlds/cstrike/config/server.cfg; \
     fi \
+    && rm -f /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins-*.ini \
     && if [[ -n "$CS16_PLUGINS_INI" \
-      && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_PLUGINS_INI}" ]]; then \
-      cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_PLUGINS_INI}" \
+      && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/${CS16_PLUGINS_INI}" ]]; then \
+      cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/${CS16_PLUGINS_INI}" \
          /opt/steam/hlds/cstrike/addons/amxmodx/configs/plugins.ini; \
     fi \
+    && rm -f /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps-*.ini \
     && if [[ -n "$CS16_MAPS_INI" \
-      && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_MAPS_INI}" ]]; then \
-      cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/${CS16_MAPS_INI}" \
+      && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/${CS16_MAPS_INI}" ]]; then \
+      cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/${CS16_MAPS_INI}" \
          /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps.ini; \
     fi \
     && if [[ "$CS16_PLUGINS_INI" == "plugins-biohazard.ini" ]]; then \
       MOTD_CFG="/opt/steam/hlds/cstrike/addons/amxmodx/configs/biohazard_motd_en.html"; \
+      SMA="/opt/steam/hlds/cstrike/addons/amxmodx/scripting/biohazard.sma"; \
+      VERSION=$(grep -m1 '^#define VERSION' "$SMA" | sed 's/.*"\([^"]*\)".*/\1/'); \
+      cp "$MOTD_CFG" /opt/steam/hlds/cstrike/motd.txt; \
+      sed -i "s/#Version#/${VERSION}/g" /opt/steam/hlds/cstrike/motd.txt; \
+    elif [[ "$CS16_PLUGINS_INI" == "plugins-respawn.ini" ]]; then \
+      MOTD_CFG="/opt/steam/hlds/cstrike/addons/amxmodx/configs/respawn_motd_en.html"; \
       SMA="/opt/steam/hlds/cstrike/addons/amxmodx/scripting/biohazard.sma"; \
       VERSION=$(grep -m1 '^#define VERSION' "$SMA" | sed 's/.*"\([^"]*\)".*/\1/'); \
       cp "$MOTD_CFG" /opt/steam/hlds/cstrike/motd.txt; \

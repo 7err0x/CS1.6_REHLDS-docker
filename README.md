@@ -197,9 +197,13 @@ amx_scrollmsg "Say /help for rules. Humans: /lm for lasermines." 300
 
 ### Respawn and teams
 
+The **`cs16`** service (profile **`respawn`**) bakes **`configs/profiles/plugins-respawn.ini`** as the only **`plugins.ini`** (AMXX also auto-loads any **`configs/plugins-*.ini`** — profile templates must not use that prefix in **`configs/`**). No Biohazard / lasermines plugins; **`respawn_defaults.amxx`** resets map lighting; **`+exec config/gamemode-respawn.cfg`**; join MOTD from **`respawn_motd_en.html`**; separate **`config.cfg`** / AMXX **vault** under **`hlds-meta-respawn/`** and **`amxx-data-respawn/vault/`**.
+
 In `cstrike/config/server.cfg`:
 
 - **`mp_forcerespawn 1`** — turns on ReGameDLL **respawn / deathmatch-style** behaviour.
+- **`mp_respawn_immunitytime 3`** — **3 seconds** spawn protection after respawn (ReGameDLL; **`0`** disables). Tune in [`cstrike/config/server.cfg`](cstrike/config/server.cfg) with **`mp_respawn_immunity_effects`** / **`mp_respawn_immunity_force_unset`**.
+- **`mp_infinite_ammo 2`** — infinite **reserve** ammo (reload without running out). Use **`1`** for infinite **clip** (no reload needed).
 - **`mp_freeforall 0`** — keep **CT vs T**. Set to **`1`** for **everyone vs everyone**.
 
 More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS) project (see `dist/game.cfg` in that repo for defaults and comments).
@@ -224,6 +228,9 @@ More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com
 | [`docker/fastdl/Dockerfile`](docker/fastdl/Dockerfile) | **`nginx:alpine`** + **bzip2**, BuildKit snapshot of **`GAME_IMAGE`** `cstrike/`, **`compress-bz2.sh`** at build and via **`entrypoint.sh`**. |
 | [`docker/fastdl/compress-bz2.sh`](docker/fastdl/compress-bz2.sh) | **`bzip2 -9 -k`** sidecars for **`.bsp`**, **`.wad`**, **`.mdl`**, **`.wav`**, **`.spr`**, **`.tga`** ≥ **`CS16_FASTDL_BZ2_MIN_BYTES`** (default **4096**). Skips unchanged files if the original is not newer than **`.bz2`**. |
 | [`docker/fastdl/default.conf`](docker/fastdl/default.conf) | Nginx: static **`.bz2`** and raw files, **`gzip off`**, **`application/octet-stream`**. |
+| [`image/zombiemod/plugins-respawn.ini`](image/zombiemod/plugins-respawn.ini) | AMXX list for **respawn**: stock admin / mapchooser stack, **`respawn_defaults.amxx`**, **`bio_crosshair_id.amxx`** (no **`biohazard.amxx`**). |
+| [`cstrike/config/gamemode-respawn.cfg`](cstrike/config/gamemode-respawn.cfg) | Boot **`+exec`** on **`cs16`**: **`mapcycle.txt`**, **`mp_forcerespawn 1`**. |
+| [`image/zombiemod/extra-assets/.../respawn_motd_en.html`](image/zombiemod/extra-assets/addons/amxmodx/configs/respawn_motd_en.html) | Join MOTD for respawn (baked as **`cstrike/motd.txt`** when **`CS16_PLUGINS_INI=plugins-respawn.ini`**). |
 | [`image/zombiemod/plugins-biohazard.ini`](image/zombiemod/plugins-biohazard.ini) | AMXX list for infection: stock admin stack, **`biohazard.amxx`**, **`lasermine.amxx`**, **`zp50_grenade_frost.amxx`** / **`zp50_grenade_fire.amxx`** (Bio ports of ZP grenades); **`nextmap`** / **`mapchooser`** commented. |
 
 **Download extras (`download-assets` profile):**
@@ -594,6 +601,8 @@ If you only need **file edits** (maps, cvars in **`server.cfg`**, AMXX **`users.
 | Goal | `rcon` examples |
 |------|-----------------|
 | **Respawn DM, teams (CT vs T)** | `rcon mp_forcerespawn 1` · `rcon mp_freeforall 0` |
+| **Spawn immunity (seconds)** | `rcon mp_respawn_immunitytime 3` (`0` = off) · `mp_respawn_immunity_effects 1` · `mp_respawn_immunity_force_unset 1` |
+| **Infinite ammo (reload)** | `rcon mp_infinite_ammo 2` (reserve) · `1` = infinite clip |
 | **FFA respawn deathmatch** | `rcon mp_forcerespawn 1` · `rcon mp_freeforall 1` |
 | **Normal round-based CS** | `rcon mp_forcerespawn 0` · `rcon mp_freeforall 0` |
 
