@@ -69,15 +69,10 @@ For persistence, prefer the **`data/cs16-game-assets/`** bind mount.
 D) Optional — unpack inside the downloader image (advanced)
 ------------------------------------------------------------------------------
 
-Mount the archive read-only and a shell:
+  docker compose --profile download-assets run --rm --entrypoint bash download-game-assets
 
-  docker compose --profile download-assets run --rm --entrypoint bash \
-    -v /path/on/host:/in:ro -v "$(pwd)/data/cs16-game-assets:/out" download-game-assets
-
-Inside the container: **`apt-get update && apt-get install -y unzip`** (or use
-host **unrar** / **7z** on your PC instead), extract under **`/tmp`**, then
-copy **.bsp** → **`/out/maps/`**, **sound** tree → **`/out/sound/`**, **.wad**
-→ **`/out/wads/`**.
+Inside the container, extract under **`/tmp`**, then copy into **`/out/maps/`**,
+**`/out/sound/`**, **`/out/wads/`** (same as **`data/cs16-game-assets/`** on the host).
 
 Usually extracting on the host with your desktop tools is easier.
 

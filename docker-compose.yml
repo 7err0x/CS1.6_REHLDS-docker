@@ -1,6 +1,6 @@
-# HLDS merges optional community assets from cs16-game-assets at start.
+# HLDS merges optional community assets from ./data/cs16-game-assets at start.
 # Configs are baked into the image (cstrike/ in repo → Dockerfile COPY).
-# Writable runtime state: cs16-state volume (subpaths) + cs16-game-assets (read-only).
+# Writable runtime state: cs16-state volume (subpaths); logs and game assets under ./data/.
 x-cs16-entrypoint: &cs16_entrypoint
   - "/usr/local/sbin/cs16-entrypoint.sh"
 
@@ -33,7 +33,7 @@ x-cs16-build-args: &cs16_build_args
   REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
 
 x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
-  - cs16-game-assets:/mnt/cs16-game-assets:ro
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
   - type: volume
     source: cs16-state
     target: /opt/steam/hlds/cstrike/banned.cfg
@@ -82,7 +82,7 @@ x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
       subpath: wads
 
 x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
-  - cs16-game-assets:/mnt/cs16-game-assets:ro
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
   - type: volume
     source: cs16-state
     target: /opt/steam/hlds/cstrike/banned.cfg
@@ -197,7 +197,7 @@ services:
     profiles:
       - download-assets
     volumes:
-      - cs16-game-assets:/out
+      - ./data/cs16-game-assets:/out
 
   cs16:
     <<: *cs16_server_common
@@ -256,7 +256,7 @@ services:
     environment:
       CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
-      - cs16-game-assets:/mnt/cs16-game-assets:ro
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
 
 networks:
   isolated:
@@ -264,5 +264,4 @@ networks:
     internal: true
 
 volumes:
-  cs16-game-assets:
   cs16-state:

@@ -704,11 +704,12 @@ Both game services use:
 
 **Writable named volumes** (created automatically on first **`docker compose up`** — no host **`mkdir`** / **`chmod`**):
 
-**`cs16-game-assets`** (community maps/sounds/WADs), **`cs16-state`** (maps, bans, per-profile **`config.cfg`**, AMXX vault, etc.). **HLDS log files** are on the host under **`./data/cs16-logs`** (override with **`CS16_LOGS_HOST_DIR`** in **`.env`**), with **`respawn/`** and **`biohazard/`** subdirs — paths are relative to the Compose project directory (repo root when you **`cd`** there before **`docker compose`**).
+**`./data/cs16-game-assets`** (community maps/sounds/WADs), **`cs16-state`** (bans, per-profile **`config.cfg`**, AMXX vault, etc.). **HLDS log files** under **`./data/cs16-logs/{respawn,biohazard}/`**.
 
-**Configs and plugins** are **baked into the image** from **`cstrike/`** and **`image/zombiemod/`** (edit in git, then **`docker compose build`**). Populate **`cs16-game-assets`** with:
+**Configs and plugins** are **baked into the image** from **`cstrike/`** and **`image/zombiemod/`** (edit in git, then **`docker compose build`**). Populate game assets with:
 
 ```bash
+mkdir -p data/cs16-game-assets
 docker compose --profile download-assets run --rm download-game-assets
 docker compose build cs16-biohazard
 docker compose --profile biohazard up -d --force-recreate
