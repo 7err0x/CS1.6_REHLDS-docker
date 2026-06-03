@@ -88,6 +88,7 @@ public bacon_use(ent, caller, activator, use_type, Float:value)
 			
 			static name[32]
 			get_user_name(caller, name, 31)
+			while(replace(name, 31, "%", "%%") > -1) { }
 			
 			client_print(0, print_chat, g_messages[0], name)
 			client_cmd(0, "spk %s", g_sounds[0])

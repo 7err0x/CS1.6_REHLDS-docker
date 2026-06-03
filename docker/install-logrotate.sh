@@ -12,6 +12,19 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
 	exit 1
 fi
 
+case "$LOG_DIR" in
+	/*)
+		if [[ "$LOG_DIR" =~ [\|\`\$\;] ]]; then
+			echo "error: LOG_DIR contains unsafe characters: $LOG_DIR" >&2
+			exit 1
+		fi
+		;;
+	*)
+		echo "error: LOG_DIR must be an absolute path: $LOG_DIR" >&2
+		exit 1
+		;;
+esac
+
 mkdir -p "$LOG_DIR"
 sed "s|@CS16_LOG_DIR@|${LOG_DIR}|g" "$TEMPLATE" >"$DEST"
 chmod 644 "$DEST"

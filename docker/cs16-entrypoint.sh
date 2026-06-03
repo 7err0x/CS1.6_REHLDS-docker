@@ -14,32 +14,48 @@ fi
 if [[ "${CS16_SKIP_MERGE_GAME_ASSETS:-0}" != "1" && -d "$SRC" ]]; then
 	mkdir -p "$CSTRIKE/maps" "$CSTRIKE/sound" "$CSTRIKE/models" "$CSTRIKE/sprites" "$CSTRIKE/wads"
 
+	cs16_copy_file() {
+		local f=$1 dest=$2
+		[[ -f "$f" ]] || return 0
+		[[ -L "$f" ]] && return 0
+		cp -af "$f" "$dest"
+	}
+
 	if [[ -d "$SRC/maps" ]]; then
 		while IFS= read -r -d '' f; do
-			cp -af "$f" "$CSTRIKE/maps/"
+			cs16_copy_file "$f" "$CSTRIKE/maps/"
 		done < <(find "$SRC/maps" -maxdepth 1 -type f \( -iname '*.bsp' \) -print0)
 	fi
 
 	if [[ -d "$SRC/sound" ]]; then
-		cp -af "$SRC/sound/." "$CSTRIKE/sound/"
+		while IFS= read -r -d '' f; do
+			[[ -L "$f" ]] && continue
+			install -D -m0644 "$f" "$CSTRIKE/sound/${f#"$SRC/sound/"}"
+		done < <(find "$SRC/sound" -type f -print0 2>/dev/null)
 	fi
 
 	if [[ -d "$SRC/models" ]]; then
-		cp -af "$SRC/models/." "$CSTRIKE/models/"
+		while IFS= read -r -d '' f; do
+			[[ -L "$f" ]] && continue
+			install -D -m0644 "$f" "$CSTRIKE/models/${f#"$SRC/models/"}"
+		done < <(find "$SRC/models" -type f -print0 2>/dev/null)
 	fi
 
 	if [[ -d "$SRC/sprites" ]]; then
-		cp -af "$SRC/sprites/." "$CSTRIKE/sprites/"
+		while IFS= read -r -d '' f; do
+			[[ -L "$f" ]] && continue
+			install -D -m0644 "$f" "$CSTRIKE/sprites/${f#"$SRC/sprites/"}"
+		done < <(find "$SRC/sprites" -type f -print0 2>/dev/null)
 	fi
 
 	if [[ -d "$SRC/wads" ]]; then
 		while IFS= read -r -d '' w; do
-			cp -af "$w" "$CSTRIKE/wads/"
+			cs16_copy_file "$w" "$CSTRIKE/wads/"
 		done < <(find "$SRC/wads" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 	fi
 
 	while IFS= read -r -d '' w; do
-		cp -af "$w" "$CSTRIKE/wads/"
+		cs16_copy_file "$w" "$CSTRIKE/wads/"
 	done < <(find "$SRC" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 fi
 

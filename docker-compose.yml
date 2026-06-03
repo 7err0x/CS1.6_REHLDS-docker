@@ -110,7 +110,7 @@ x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "+log"
   - "on"
   - "+map"
-  - "${START_MAP:-fy_iceworld}"
+  - "${START_MAP:-fy_snow}"
 
 x-cs16-biohazard-cmd: &cs16_biohazard_cmd
   - "./hlds_run"
@@ -169,8 +169,8 @@ services:
       - "${SERVER_PORT:-27016}:27015/tcp"
       - "${SERVER_PORT:-27016}:27015/udp"
     command: *cs16_respawn_cmd
-    networks:
-      - isolated
+#    networks:
+#      - isolated
 
   cs16-biohazard:
     <<: *cs16_server_common
@@ -189,12 +189,11 @@ services:
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
       - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
     command: *cs16_biohazard_cmd
-##    networks:
-##      - isolated
+    networks:
+      - isolated
 
   fastdl:
-    profiles:
-      - fastdl
+    init: true
     build:
       context: .
       dockerfile: docker/fastdl/Dockerfile

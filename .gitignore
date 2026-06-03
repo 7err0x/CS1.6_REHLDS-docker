@@ -1,3 +1,6 @@
+# Secrets and local overrides (never commit).
+.env
+
 # Optional local folder for manual map staging (not mounted by default).
 data/cs16-game-assets/**
 !data/cs16-game-assets/README.txt

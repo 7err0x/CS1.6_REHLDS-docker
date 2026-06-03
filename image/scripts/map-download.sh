@@ -23,6 +23,29 @@ sniff_ext() {
 	esac
 }
 
+validate_download_url() {
+	local url=$1
+	case "$url" in
+		http://*|https://*) ;;
+		*) echo "Rejected URL (http/https only): $url" >&2; return 1 ;;
+	esac
+}
+
+reject_unsafe_extract_tree() {
+	local root=$1
+	local bad
+	bad="$(find "$root" \( -path '*/../*' -o -path '*/../*/*' -o -name '..' \) -print -quit 2>/dev/null || true)"
+	if [[ -n "$bad" ]]; then
+		echo "Rejected archive path (zip-slip): $bad" >&2
+		return 1
+	fi
+	while IFS= read -r -d '' link; do
+		echo "Rejected symlink in archive: $link" >&2
+		return 1
+	done < <(find "$root" -type l -print0 2>/dev/null)
+	return 0
+}
+
 extract_archive() {
 	local filepath=$1
 	local dest=$2
@@ -30,7 +53,17 @@ extract_archive() {
 	mkdir -p "$dest"
 	case "$arch" in
 		rar) (cd "$dest" && unrar-free x -o+ "$filepath") ;;
-		zip) unzip -q -o "$filepath" -d "$dest" ;;
+		zip)
+			local entry
+			while IFS= read -r entry; do
+				[[ -z "$entry" ]] && continue
+				if [[ "$entry" == /* || "$entry" == ../* || "$entry" == */../* ]]; then
+					echo "Rejected zip entry (zip-slip): $entry" >&2
+					return 1
+				fi
+			done < <(unzip -Z1 "$filepath")
+			unzip -q -o "$filepath" -d "$dest"
+			;;
 		7z)
 			if command -v 7zr >/dev/null 2>&1; then
 				7zr x -y -o"$dest" "$filepath"
@@ -120,7 +153,8 @@ fetch_one() {
 	echo ">>> $dl"
 	tmp="$(mktemp)"
 	dest="$(mktemp -d)"
-	curl -fsSL -L --connect-timeout 30 --max-time 600 -o "$tmp" "$dl"
+	validate_download_url "$dl" || return 1
+	curl -fsSL -L --connect-timeout 30 --max-time 600 --max-redirs 5 -o "$tmp" "$dl"
 
 	path_hint="$(archive_type_from_path "$dl")"
 	sniffed="$(sniff_ext "$tmp")"
@@ -132,6 +166,11 @@ fetch_one() {
 	fi
 
 	if ! extract_archive "$tmp" "$dest" "$arch"; then
+		rm -rf "$dest" "$tmp"
+		return 1
+	fi
+
+	if ! reject_unsafe_extract_tree "$dest"; then
 		rm -rf "$dest" "$tmp"
 		return 1
 	fi

@@ -644,7 +644,7 @@ public plugin_init()
 	register_clcmd("say /guns", "cmd_enablemenu")
 	register_clcmd("say /help", "cmd_helpmotd")
 	register_clcmd("nightvision", "bio_clcmd_nightvision")
-	register_clcmd("amx_infect", "cmd_infectuser", ADMIN_BAN, "<name or #userid>")
+	register_clcmd("amx_infect", "cmd_infectuser", ADMIN_LEVEL_A, "<name or #userid>")
 	
 	register_menu("Equipment", 1023, "action_equip")
 	register_menu("Primary", 1023, "action_prim")
@@ -2379,7 +2379,15 @@ public action_prim(id, key)
 		case 9: display_weaponmenu(id, MENU_PRIMARY, --g_menuposition[id])
     		default:
 		{
-			g_player_weapons[id][0] = g_menuposition[id] * 8 + key
+			if(key < 0 || key > 7)
+				return PLUGIN_HANDLED
+
+			new idx = g_menuposition[id] * 8 + key
+
+			if(idx < 0 || idx >= sizeof g_primaryweapons)
+				return PLUGIN_HANDLED
+
+			g_player_weapons[id][0] = idx
 			equipweapon(id, EQUIP_PRI)
 			
 			display_weaponmenu(id, MENU_SECONDARY, g_menuposition[id] = 0)
@@ -2399,10 +2407,18 @@ public action_sec(id, key)
 		case 9: display_weaponmenu(id, MENU_SECONDARY, --g_menuposition[id])
     		default:
 		{
+			if(key < 0 || key > 7)
+				return PLUGIN_HANDLED
+
+			new idx = g_menuposition[id] * 8 + key
+
+			if(idx < 0 || idx >= sizeof g_secondaryweapons)
+				return PLUGIN_HANDLED
+
 			g_menufailsafe[id] = false
 			remove_task(TASKID_WEAPONSMENU + id)
 			
-			g_player_weapons[id][1] = g_menuposition[id] * 8 + key
+			g_player_weapons[id][1] = idx
 			equipweapon(id, EQUIP_SEC)
 			equipweapon(id, EQUIP_GREN)
 		}
@@ -2464,7 +2480,15 @@ public action_class(id, key)
 		case 9: display_classmenu(id, --g_menuposition[id])
     		default:
 		{
-			g_mutate[id] = g_menuposition[id] * 8 + key
+			if(key < 0 || key > 7)
+				return PLUGIN_HANDLED
+
+			new idx = g_menuposition[id] * 8 + key
+
+			if(idx < 0 || idx >= g_classcount)
+				return PLUGIN_HANDLED
+
+			g_mutate[id] = idx
 			client_print(id, print_chat, "%L", id, "MENU_CHANGECLASS", g_class_name[g_mutate[id]])
 		}
 	}
@@ -2528,7 +2552,12 @@ public register_zombieclasses(filename[])
 			
 			if(line[0] == '[' && line[strlen(line) - 1] == ']')
 			{
-				copy(classname, strlen(line) - 2, line[1])
+				new sectlen = strlen(line) - 2
+
+				if(sectlen <= 0 || sectlen > charsmax(classname))
+					continue
+
+				copy(classname, charsmax(classname), line[1])
 
 				if(register_class(classname) == -1)
 					break
@@ -2540,9 +2569,19 @@ public register_zombieclasses(filename[])
 			if(equali(leftstr, "DESC"))
 				copy(g_class_desc[g_classcount - 1], 31, rightstr)
 			else if(equali(leftstr, "PMODEL"))
-				copy(g_class_pmodel[g_classcount - 1], 63, rightstr)
+			{
+				if(bh_is_safe_asset_path(rightstr))
+					copy(g_class_pmodel[g_classcount - 1], 63, rightstr)
+				else
+					log_amx("[Biohazard] Rejected PMODEL path in %s", configfile)
+			}
 			else if(equali(leftstr, "WMODEL"))
-				copy(g_class_wmodel[g_classcount - 1], 63, rightstr)
+			{
+				if(bh_is_safe_asset_path(rightstr))
+					copy(g_class_wmodel[g_classcount - 1], 63, rightstr)
+				else
+					log_amx("[Biohazard] Rejected WMODEL path in %s", configfile)
+			}
 				
 			for(i = 0; i < MAX_DATA; i++)
 				data[i] = equali(leftstr, g_dataname[i])
@@ -2629,12 +2668,20 @@ public native_preinfect_user(index, bool:yesno)
 
 public native_infect_user(victim, attacker)
 {
+	if(victim < 1 || victim > g_maxplayers || !is_user_connected(victim))
+		return
+
 	if(allow_infection() && g_gamestarted)
 		infect_user(victim, attacker)
 }
 
 public native_cure_user(index)
+{
+	if(index < 1 || index > g_maxplayers || !is_user_connected(index))
+		return
+
 	cure_user(index)
+}
 
 public native_get_class_id(classname[])
 {
@@ -2650,10 +2697,37 @@ public native_get_class_id(classname[])
 }
 
 public Float:native_get_class_data(classid, dataid)
+{
+	if(classid < 0 || classid >= g_classcount || dataid < 0 || dataid >= MAX_DATA)
+		return 0.0
+
 	return g_class_data[classid][dataid]
+}
 
 public native_set_class_data(classid, dataid, Float:value)
+{
+	if(classid < 0 || classid >= g_classcount || dataid < 0 || dataid >= MAX_DATA)
+		return
+
 	g_class_data[classid][dataid] = value
+}
+
+stock bool:bh_is_safe_asset_path(const path[])
+{
+	if(!path[0])
+		return false
+
+	if(contain(path, "..") != -1)
+		return false
+
+	if(contain(path, ":") != -1 || contain(path, "\") != -1)
+		return false
+
+	if(path[0] == 47 || path[0] == 92)
+		return false
+
+	return true
+}
 
 stock bool:fm_is_hull_vacant(const Float:origin[3], hull)
 {
