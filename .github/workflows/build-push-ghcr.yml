@@ -1,0 +1,132 @@
+# Build cs16-respawn and cs16-biohazard when rehlds/ReHLDS publishes a new release,
+# using the latest Metamod / ReGameDLL / ReAPI / ReUnion releases at build time.
+#
+# GitHub cannot subscribe to another repo's release events; this workflow polls on a
+# schedule and skips if the ReHLDS tag is already published on GHCR.
+name: Build and push to GHCR
+
+on:
+  schedule:
+    # Check for new ReHLDS releases once a week (Sunday 03:17 UTC).
+    - cron: "00 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and push even if the ReHLDS tag already exists on GHCR
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  rehlds-release:
+    runs-on: ubuntu-latest
+    outputs:
+      rehlds: ${{ steps.versions.outputs.rehlds }}
+      metamod: ${{ steps.versions.outputs.metamod }}
+      regamedll: ${{ steps.versions.outputs.regamedll }}
+      reapi: ${{ steps.versions.outputs.reapi }}
+      reunion: ${{ steps.versions.outputs.reunion }}
+      skip: ${{ steps.skip.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest rehlds stack versions
+        id: versions
+        run: bash .github/scripts/resolve-rehlds-stack-versions.sh
+
+      - name: Log in to GHCR
+        if: github.event_name != 'workflow_dispatch' || inputs.force != true
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip if ReHLDS tag already on GHCR
+        id: skip
+        env:
+          REHLDS_TAG: ${{ steps.versions.outputs.rehlds }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/cs16-respawn
+        run: |
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/${OWNER_LC}/cs16-respawn"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force }}" == "true" ]]; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Force rebuild requested."
+            exit 0
+          fi
+          if docker manifest inspect "${IMAGE}:${REHLDS_TAG}" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Image ${IMAGE}:${REHLDS_TAG} already exists — no new ReHLDS release to publish."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "New ReHLDS release ${REHLDS_TAG} — will build."
+          fi
+
+  build-push:
+    needs: rehlds-release
+    if: needs.rehlds-release.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: cs16-respawn
+            cs16_server_config: server.cfg
+            cs16_plugins_ini: plugins-respawn.ini
+            cs16_maps_ini: ""
+          - image: cs16-biohazard
+            cs16_server_config: server-biohazard.cfg
+            cs16_plugins_ini: plugins-biohazard.ini
+            cs16_maps_ini: maps-biohazard.ini
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.rehlds-release.outputs.rehlds }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: cs16
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          build-args: |
+            REHLDS_BUILD=${{ needs.rehlds-release.outputs.rehlds }}
+            METAMOD_VERSION=${{ needs.rehlds-release.outputs.metamod }}
+            REGAMEDLL_VERSION=${{ needs.rehlds-release.outputs.regamedll }}
+            REAPI_VERSION=${{ needs.rehlds-release.outputs.reapi }}
+            REUNION_VERSION=${{ needs.rehlds-release.outputs.reunion }}
+            CS16_SERVER_CONFIG=${{ matrix.cs16_server_config }}
+            CS16_PLUGINS_INI=${{ matrix.cs16_plugins_ini }}
+            CS16_MAPS_INI=${{ matrix.cs16_maps_ini }}

@@ -129,6 +129,19 @@ docker compose build cs16
 docker compose --profile biohazard up -d --force-recreate
 ```
 
+### CI images (GHCR)
+
+[`.github/workflows/build-push-ghcr.yml`](.github/workflows/build-push-ghcr.yml) polls for new **[ReHLDS](https://github.com/rehlds/ReHLDS/releases)** releases once a week (Sunday 03:17 UTC). When a new tag appears, it builds **`cs16-respawn`** and **`cs16-biohazard`** with the latest Metamod / ReGameDLL / ReAPI / ReUnion releases and pushes to **`ghcr.io/<owner>/cs16-respawn`** and **`cs16-biohazard`** tagged **`latest`** and **`<rehlds-tag>`** (e.g. **`3.15.0.896`**).
+
+Enable **Actions** and set the package visibility to **public** (or use a PAT with **`read:packages`** to pull). Example **`.env`**:
+
+```bash
+CS16_RESPAWN_IMAGE=ghcr.io/your-user/cs16-respawn:3.15.0.896
+CS16_BIOHAZARD_IMAGE=ghcr.io/your-user/cs16-biohazard:3.15.0.896
+```
+
+Manual rebuild: **Actions → Build and push to GHCR → Run workflow** (optional **force** to republish an existing ReHLDS tag).
+
 **ReHLDS 3.15+** includes fixes for **executable stack** / glibc issues on newer hosts (see [ReHLDS #1157](https://github.com/rehlds/ReHLDS/pull/1157)) — you may no longer need **`GLIBC_TUNABLES=glibc.rtld.execstack=2`** in Compose.
 
 ---
