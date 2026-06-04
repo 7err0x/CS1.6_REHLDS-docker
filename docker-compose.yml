@@ -4,6 +4,13 @@
 x-cs16-entrypoint: &cs16_entrypoint
   - "/usr/local/sbin/cs16-entrypoint.sh"
 
+x-cs16-limits: &cs16_limits
+  deploy:
+    resources:
+      limits:
+        cpus: "2"
+        memory: 500M
+
 x-cs16-security: &cs16_security
   init: true
   read_only: true
@@ -131,7 +138,7 @@ x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
       subpath: wads
 
 x-cs16-server-common: &cs16_server_common
-  <<: *cs16_security
+  <<: [*cs16_security, *cs16_limits]
   entrypoint: *cs16_entrypoint
   depends_on:
     cs16-state-init:
@@ -241,6 +248,7 @@ services:
 #      - isolated
 
   fastdl:
+    <<: *cs16_limits
     init: true
     build:
       context: .
