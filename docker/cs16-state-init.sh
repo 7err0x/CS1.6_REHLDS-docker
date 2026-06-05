@@ -37,9 +37,10 @@ seed_dir_from_bootstrap() {
 	while IFS= read -r -d '' f; do
 		rel="${f#"$src"/}"
 		[[ -e "$dest/$rel" ]] && continue
-		install -D -m0644 "$f" "$dest/$rel"
+		install -D -o steam -g steam -m0644 "$f" "$dest/$rel"
 	done < <(find "$src" -type f -print0 2>/dev/null)
 	touch "$marker"
+	chown steam:steam "$marker" 2>/dev/null || true
 }
 
 for subdir in maps sound models sprites wads; do
@@ -80,6 +81,7 @@ seed_cfg_file() {
 	else
 		: >"$target"
 	fi
+	chown steam:steam "$target" 2>/dev/null || true
 }
 
 for cfg in banned.cfg listip.cfg config.cfg; do
@@ -92,10 +94,29 @@ for profile in respawn biohazard; do
 		"${BOOTSTRAP}/hlds-meta-${profile}/config.cfg"
 done
 
+relabel_state_selinux() {
+	command -v chcon >/dev/null 2>&1 || return 0
+	if chcon -R -h system_u:object_r:container_file_t:s0 "$STATE" 2>/dev/null; then
+		return 0
+	fi
+	echo "[cs16-state-init] warn: partial SELinux relabel on ${STATE}; if HLDS cannot read maps, run: ./docker/fix-volume-selinux.sh" >&2
+}
+
+chown_best_effort() {
+	local target=$1
+	if chown -R steam:steam "$target" 2>/dev/null; then
+		return 0
+	fi
+	# Rootless: files HLDS already wrote keep a different mapped uid; leave them alone.
+	echo "[cs16-state-init] warn: partial chown on ${target} (normal on rootless Podman)" >&2
+	find "$target" \( -user root -o -uid "$(id -u)" \) -exec chown steam:steam {} + 2>/dev/null || true
+}
+
 if [[ -d /host/cs16-logs ]]; then
 	mkdir -p /host/cs16-logs/respawn /host/cs16-logs/biohazard
-	chown -R steam:steam /host/cs16-logs
+	chown_best_effort /host/cs16-logs
 	echo "[cs16-state-init] Host logs: /host/cs16-logs/{respawn,biohazard}"
 fi
 
-chown -R steam:steam "$STATE"
+relabel_state_selinux
+chown_best_effort "$STATE"

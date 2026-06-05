@@ -40,14 +40,14 @@ x-cs16-build-args: &cs16_build_args
   REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
 
 x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
-  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-  - cs16-state:/var/cs16/state
-  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/respawn:/opt/steam/hlds/cstrike/logs
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
+  - cs16-state:/var/cs16/state:z
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/respawn:/opt/steam/hlds/cstrike/logs:z
 
 x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
-  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-  - cs16-state:/var/cs16/state
-  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
+  - cs16-state:/var/cs16/state:z
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs:z
 
 x-cs16-server-common: &cs16_server_common
   <<: [*cs16_security, *cs16_limits]
@@ -103,8 +103,8 @@ services:
     user: "0:0"
     entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
     volumes:
-      - cs16-state:/var/cs16/state
-      - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs
+      - cs16-state:/var/cs16/state:z
+      - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs:z
     image: ${CS16_RESPAWN_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}
     profiles:
       - respawn
@@ -120,7 +120,7 @@ services:
     profiles:
       - download-assets
     volumes:
-      - ./data/cs16-game-assets:/out
+      - ./data/cs16-game-assets:/out:z
 
   cs16:
     <<: *cs16_server_common
@@ -180,7 +180,7 @@ services:
     environment:
       CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
-      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
+      - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
 
 networks:
   isolated:

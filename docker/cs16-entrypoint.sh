@@ -42,10 +42,20 @@ if [[ "${CS16_SKIP_MERGE_GAME_ASSETS:-0}" != "1" && -d "$SRC" ]]; then
 	mkdir -p "$CSTRIKE/maps" "$CSTRIKE/sound" "$CSTRIKE/models" "$CSTRIKE/sprites" "$CSTRIKE/wads" 2>/dev/null || true
 
 	cs16_copy_file() {
-		local f=$1 dest=$2
-		[[ -f "$f" && -w "$dest" ]] || return 0
+		local f=$1 dest=$2 base dest_file
+		base=$(basename "$f")
+		dest_file="${dest%/}/${base}"
+		[[ -f "$f" && -r "$f" ]] || return 0
+		[[ -w "$dest" ]] || return 0
 		[[ -L "$f" ]] && return 0
-		cp -af "$f" "$dest"
+		if [[ -e "$dest_file" && ! -r "$dest_file" ]]; then
+			rm -f "$dest_file" 2>/dev/null || {
+				echo "[cs16-entrypoint] warn: cannot replace unreadable ${dest_file}, skipping ${base}" >&2
+				return 0
+			}
+		fi
+		# Do not use cp -a: it preserves user_home_t from the host bind mount (SELinux blocks reads).
+		install -m0644 "$f" "$dest_file" 2>/dev/null || cp -f "$f" "$dest_file" 2>/dev/null || true
 	}
 
 	if [[ -d "$SRC/maps" && -w "$CSTRIKE/maps" ]]; then
@@ -97,7 +107,7 @@ if [[ -d "$BOOT/sprites" && -w "$CSTRIKE/sprites" ]]; then
 	mkdir -p "$CSTRIKE/sprites"
 	while IFS= read -r -d '' f; do
 		base=$(basename "$f")
-		[[ -e "$CSTRIKE/sprites/$base" ]] || cp -af "$f" "$CSTRIKE/sprites/$base"
+		[[ -e "$CSTRIKE/sprites/$base" ]] || install -m0644 "$f" "$CSTRIKE/sprites/$base" 2>/dev/null || true
 	done < <(find "$BOOT/sprites" -maxdepth 1 -type f -print0)
 fi
 
