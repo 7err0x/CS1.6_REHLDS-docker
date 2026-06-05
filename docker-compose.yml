@@ -181,6 +181,7 @@ services:
       CS16_FASTDL_BZ2_MIN_BYTES: ${CS16_FASTDL_BZ2_MIN_BYTES:-4096}
     volumes:
       - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
+      - cs16-state:/var/cs16/state:z
 
 networks:
   isolated:

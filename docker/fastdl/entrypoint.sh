@@ -1,5 +1,6 @@
 #!/bin/sh
-# Populate nginx docroot from image /built tree + optional cs16-game-assets volume.
+# Populate nginx docroot from /built (cs16-bootstrap + gfx/resource at image build),
+# cs16-state volume (live server tree), then cs16-game-assets.
 # Use cp -r only (not -a): read_only root + tmpfs html cannot preserve ownership.
 set -e
 
@@ -26,6 +27,17 @@ if [ -d /built/overviews ]; then cp -r /built/overviews/. "$html/overviews/"; fi
 for w in /built/*.wad; do
 	if [ -f "$w" ]; then cp "$w" "$html/"; fi
 done
+
+state=/var/cs16/state
+if [ -d "$state/maps" ]; then cp -r "$state/maps/." "$html/maps/"; fi
+if [ -d "$state/sound" ]; then cp -r "$state/sound/." "$html/sound/"; fi
+if [ -d "$state/models" ]; then cp -r "$state/models/." "$html/models/"; fi
+if [ -d "$state/sprites" ]; then cp -r "$state/sprites/." "$html/sprites/"; fi
+if [ -d "$state/wads" ]; then
+	for w in "$state/wads"/*.wad "$state/wads"/*.WAD; do
+		if [ -f "$w" ]; then cp "$w" "$html/"; fi
+	done
+fi
 
 if [ -d /mnt/cs16-game-assets/maps ]; then cp -r /mnt/cs16-game-assets/maps/. "$html/maps/"; fi
 if [ -d /mnt/cs16-game-assets/sound ]; then mkdir -p "$html/sound" && cp -r /mnt/cs16-game-assets/sound/. "$html/sound/"; fi
