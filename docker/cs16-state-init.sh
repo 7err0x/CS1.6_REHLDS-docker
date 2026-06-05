@@ -19,24 +19,31 @@ mkdir -p \
 	"${STATE}/sprites" \
 	"${STATE}/wads"
 
-seed_dir_if_empty() {
+seed_dir_from_bootstrap() {
 	local name=$1
 	local dest="${STATE}/${name}"
 	local src="${BOOTSTRAP}/${name}"
 	local marker="${dest}/.seeded-from-image"
 
 	[[ -d "$src" ]] || return 0
-	if [[ -n "$(find "$dest" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+	if [[ ! -f "$marker" && -z "$(find "$dest" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+		echo "[cs16-state-init] Seeding state/${name} (first start only)..."
+		tar -C "$src" -cf - . | tar -C "$dest" --no-same-owner --no-same-permissions -xf -
+		touch "$marker"
 		return 0
 	fi
 
-	echo "[cs16-state-init] Seeding state/${name} (first start only)..."
-	tar -C "$src" -cf - . | tar -C "$dest" --no-same-owner --no-same-permissions -xf -
+	echo "[cs16-state-init] Merging missing bootstrap files into state/${name}..."
+	while IFS= read -r -d '' f; do
+		rel="${f#"$src"/}"
+		[[ -e "$dest/$rel" ]] && continue
+		install -D -m0644 "$f" "$dest/$rel"
+	done < <(find "$src" -type f -print0 2>/dev/null)
 	touch "$marker"
 }
 
 for subdir in maps sound models sprites wads; do
-	seed_dir_if_empty "$subdir"
+	seed_dir_from_bootstrap "$subdir"
 done
 
 seed_amxx_vault() {
@@ -59,36 +66,30 @@ for profile in respawn biohazard; do
 	seed_amxx_vault "$profile"
 done
 
-for cfg in banned.cfg listip.cfg config.cfg; do
-	target="${STATE}/hlds-meta/${cfg}"
+seed_cfg_file() {
+	local target=$1 src=$2
 	if [[ -f "$target" ]]; then
-		continue
+		return 0
 	fi
 	if [[ -d "$target" ]]; then
 		echo "[cs16-state-init] removing invalid directory ${target}" >&2
 		rm -rf "$target"
 	fi
-	if [[ -f "${CSTRIKE}/${cfg}" ]]; then
-		cp "${CSTRIKE}/${cfg}" "$target"
+	if [[ -f "$src" ]]; then
+		cp "$src" "$target"
 	else
 		: >"$target"
 	fi
+}
+
+for cfg in banned.cfg listip.cfg config.cfg; do
+	seed_cfg_file "${STATE}/hlds-meta/${cfg}" "${BOOTSTRAP}/hlds-meta/${cfg}"
 done
 
 for profile in respawn biohazard; do
-	target="${STATE}/hlds-meta-${profile}/config.cfg"
-	if [[ -f "$target" ]]; then
-		continue
-	fi
-	if [[ -d "$target" ]]; then
-		echo "[cs16-state-init] removing invalid directory ${target}" >&2
-		rm -rf "$target"
-	fi
-	if [[ -f "${CSTRIKE}/config.cfg" ]]; then
-		cp "${CSTRIKE}/config.cfg" "$target"
-	else
-		: >"$target"
-	fi
+	seed_cfg_file \
+		"${STATE}/hlds-meta-${profile}/config.cfg" \
+		"${BOOTSTRAP}/hlds-meta-${profile}/config.cfg"
 done
 
 if [[ -d /host/cs16-logs ]]; then

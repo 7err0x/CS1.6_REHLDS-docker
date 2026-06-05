@@ -50,6 +50,34 @@ fi
 echo "[cs16-image-slim] Removing AMXX build artifacts..."
 rm -rf "${CSTRIKE}/addons/amxmodx/scripting"
 
+STATE="${CS16_STATE_DIR:-/var/cs16/state}"
+PROFILE="${CS16_STATE_PROFILE:-respawn}"
+
+mkdir -p "${BOOT}/hlds-meta" "${BOOT}/hlds-meta-respawn" "${BOOT}/hlds-meta-biohazard"
+for cfg in banned.cfg listip.cfg config.cfg; do
+	[[ -f "${CSTRIKE}/${cfg}" ]] && cp -a "${CSTRIKE}/${cfg}" "${BOOT}/hlds-meta/${cfg}"
+done
+[[ -f "${CSTRIKE}/config.cfg" ]] && cp -a "${CSTRIKE}/config.cfg" "${BOOT}/hlds-meta-${PROFILE}/config.cfg"
+
+echo "[cs16-image-slim] Linking volume-backed paths under ${STATE} (profile: ${PROFILE})..."
+link_state_file() {
+	local name=$1 rel=$2
+	rm -f "${CSTRIKE}/${name}"
+	ln -s "${STATE}/${rel}" "${CSTRIKE}/${name}"
+}
+
+link_state_file banned.cfg hlds-meta/banned.cfg
+link_state_file listip.cfg hlds-meta/listip.cfg
+link_state_file config.cfg "hlds-meta-${PROFILE}/config.cfg"
+
+for d in maps sound models sprites wads; do
+	rm -rf "${CSTRIKE}/${d}"
+	ln -s "${STATE}/${d}" "${CSTRIKE}/${d}"
+done
+
+rm -rf "${CSTRIKE}/addons/amxmodx/data/vault"
+ln -s "${STATE}/amxx-data-${PROFILE}/vault" "${CSTRIKE}/addons/amxmodx/data/vault"
+
 echo "[cs16-image-slim] Removing SteamCMD / 64-bit HLDS artifacts..."
 rm -rf \
 	"${STEAM_HOME}/package" \

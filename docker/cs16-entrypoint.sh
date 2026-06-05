@@ -3,8 +3,35 @@
 set -euo pipefail
 
 CSTRIKE="${CSTRIKE_ROOT:-/opt/steam/hlds/cstrike}"
+STATE="${CS16_STATE_DIR:-/var/cs16/state}"
 SRC="${CS16_GAME_ASSETS_MOUNT:-/mnt/cs16-game-assets}"
 STEAM_HOME="${HOME:-/opt/steam}/.steam"
+
+cs16_dir_is_empty() {
+	local path=$1
+	[[ -d "$path" ]] && [[ -z "$(find "$path" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]
+}
+
+cs16_verify_state_links() {
+	[[ -d "${STATE}/maps" ]] || return 0
+	local state_maps
+	state_maps=$(find "${STATE}/maps" -maxdepth 1 -name '*.bsp' 2>/dev/null | wc -l)
+	[[ "$state_maps" -gt 0 ]] || return 0
+
+	if [[ -L "${CSTRIKE}/maps" && "$(readlink "${CSTRIKE}/maps")" == "${STATE}/maps" ]]; then
+		return 0
+	fi
+
+	if cs16_dir_is_empty "${CSTRIKE}/maps" || [[ ! -w "${CSTRIKE}/maps" ]]; then
+		echo "[cs16-entrypoint] ERROR: ${STATE}/maps has stock maps but ${CSTRIKE}/maps is empty and not linked." >&2
+		echo "[cs16-entrypoint] Rebuild images, then recreate containers:" >&2
+		echo "[cs16-entrypoint]   podman compose build cs16 cs16-biohazard" >&2
+		echo "[cs16-entrypoint]   podman compose --profile respawn up -d --force-recreate" >&2
+		exit 1
+	fi
+}
+
+cs16_verify_state_links
 
 mkdir -p "${STEAM_HOME}"
 if [[ ! -e "${STEAM_HOME}/sdk32" ]]; then

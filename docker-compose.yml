@@ -1,6 +1,6 @@
 # HLDS merges optional community assets from ./data/cs16-game-assets at start.
 # Configs are baked into the image (cstrike/ in repo → Dockerfile COPY).
-# Writable runtime state: cs16-state volume (subpaths); logs and game assets under ./data/.
+# Writable runtime state: cs16-state volume at /var/cs16/state (image symlinks into cstrike/); logs and game assets under ./data/.
 x-cs16-entrypoint: &cs16_entrypoint
   - "/usr/local/sbin/cs16-entrypoint.sh"
 
@@ -41,101 +41,13 @@ x-cs16-build-args: &cs16_build_args
 
 x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
   - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/banned.cfg
-    volume:
-      subpath: hlds-meta/banned.cfg
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/listip.cfg
-    volume:
-      subpath: hlds-meta/listip.cfg
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/config.cfg
-    volume:
-      subpath: hlds-meta-respawn/config.cfg
+  - cs16-state:/var/cs16/state
   - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/respawn:/opt/steam/hlds/cstrike/logs
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
-    volume:
-      subpath: amxx-data-respawn/vault
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/maps
-    volume:
-      subpath: maps
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/sound
-    volume:
-      subpath: sound
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/models
-    volume:
-      subpath: models
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/sprites
-    volume:
-      subpath: sprites
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/wads
-    volume:
-      subpath: wads
 
 x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
   - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/banned.cfg
-    volume:
-      subpath: hlds-meta/banned.cfg
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/listip.cfg
-    volume:
-      subpath: hlds-meta/listip.cfg
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/config.cfg
-    volume:
-      subpath: hlds-meta-biohazard/config.cfg
+  - cs16-state:/var/cs16/state
   - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/addons/amxmodx/data/vault
-    volume:
-      subpath: amxx-data-biohazard/vault
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/maps
-    volume:
-      subpath: maps
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/sound
-    volume:
-      subpath: sound
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/models
-    volume:
-      subpath: models
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/sprites
-    volume:
-      subpath: sprites
-  - type: volume
-    source: cs16-state
-    target: /opt/steam/hlds/cstrike/wads
-    volume:
-      subpath: wads
 
 x-cs16-server-common: &cs16_server_common
   <<: [*cs16_security, *cs16_limits]

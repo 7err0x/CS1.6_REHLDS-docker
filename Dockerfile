@@ -252,8 +252,13 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
 
-RUN /usr/local/sbin/cs16-image-slim.sh \
-    && chown -R steam:steam /usr/local/share/cs16-bootstrap /opt/steam
+RUN if [[ "$CS16_PLUGINS_INI" == "plugins-biohazard.ini" ]]; then \
+      export CS16_STATE_PROFILE=biohazard; \
+    else \
+      export CS16_STATE_PROFILE=respawn; \
+    fi \
+    && /usr/local/sbin/cs16-image-slim.sh \
+    && chown -hR steam:steam /usr/local/share/cs16-bootstrap /opt/steam
 
 # -----------------------------------------------------------------------------
 # Stage 4 — runtime: i386 libs only (no curl/unzip build tools)
