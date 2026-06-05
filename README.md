@@ -561,7 +561,7 @@ Game files live under `/opt/steam/hlds/cstrike` inside the container.
 
 ### GoldSrc vs Source (important)
 
-**Counter-Strike 1.6** uses the **GoldSrc / HLDS** remote console: **UDP** to the **same port players use** (inside the container that is **27015**; on the host it is **`SERVER_PORT`** from **`.env`**, default **27016** in **`docker-compose.yml`**).
+**Counter-Strike 1.6** uses the **GoldSrc / HLDS** remote console: **UDP** to the **same port players use** (**`SERVER_PORT`** from **`.env`**, default **27016**; HLDS binds it via **`+port`** in **`docker-compose.yml`**).
 
 That is **not** the **Source engine RCON** protocol (**TCP**, different packet layout). Docker images built around **Source RCON** will **not** talk to this server. In particular, **[`outdead/rcon`](https://hub.docker.com/r/outdead/rcon)** ([gorcon/rcon-cli](https://github.com/gorcon/rcon-cli)) targets **Source / Web / Telnet** RCON for games like **CS:GO** — **do not use it for CS 1.6**.
 
@@ -700,7 +700,7 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 
 ## Ports and security
 
-- **`SERVER_PORT`** (default **27016** on the host) maps to **27015/tcp** and **27015/udp** in the container (override in **`.env`**).
+- **`SERVER_PORT`** (default **27016**) is the game and RCON port on the host and inside the container (**`+port`** + publish mapping in **`docker-compose.yml`**; override in **`.env`**).
 - **Change `RCON_PASSWORD`** before exposing the host to the internet; use a firewall and only open what you need.
 - **VAC is off** (`secure 0` in **`liblist.gam`** and **`cstrike/config/server.cfg`**) so **Steam and non‑Steam** clients can connect with ReUnion; the server is **not** VAC‑secured.
 
@@ -713,7 +713,7 @@ Both game services use:
 | **`user: steam`** | Process runs as the image **`steam`** user (not root). |
 | **`init: true`** | Tiny init (**tini**) reaps zombie processes from **`hlds_run`**. |
 | **`read_only: true`** | Root filesystem is read-only; volumes and host log bind mounts hold runtime writes. |
-| **`cap_drop: [ALL]`** | Drops Linux capabilities (game port **27015** is unprivileged inside the container). |
+| **`cap_drop: [ALL]`** | Drops Linux capabilities (game **`SERVER_PORT`** is unprivileged inside the container). |
 | **`security_opt: no-new-privileges:true`** | Blocks privilege escalation via setuid binaries. |
 | **`tmpfs`** | Writable **`/tmp`** and **`/run`**. |
 
@@ -753,6 +753,16 @@ sudo ./docker/biohazard-egress-firewall.sh remove   # tear down
 ```
 
 Rules live in iptables chain **`CS16-BIOHAZARD-EGRESS`**, jumped from **`DOCKER-USER`**. Re-run **`apply`** whenever you **`--force-recreate`** the biohazard container (its IP changes).
+
+### Rootless Docker (UDP)
+
+GoldSrc needs **bidirectional UDP** with correct client source addresses. Rootless Docker’s **default** RootlessKit stack (`gvisor-tap-vsock` + `builtin` port driver) often allows **`connect 127.0.0.1:27016`** but **fails from the LAN** — this is a **known rootless networking constraint**, not an HLDS bug.
+
+**Recommended:** switch to **passt** (`pasta`) + **`implicit`** port driver:
+
+
+**Alternatives:** host networking (`docker-compose.rootless-hostnet.yml`) or rootful Docker.
+
 
 ---
 

@@ -163,6 +163,8 @@ x-cs16-respawn-cmd: &cs16_respawn_cmd
   - "on"
   - "+map"
   - "${START_MAP:-fy_snow}"
+  - "+port"
+  - "${SERVER_PORT:-27016}"
 
 x-cs16-biohazard-cmd: &cs16_biohazard_cmd
   - "./hlds_run"
@@ -181,6 +183,8 @@ x-cs16-biohazard-cmd: &cs16_biohazard_cmd
   - "on"
   - "+map"
   - "${BIOHAZARD_START_MAP:-cs_estate}"
+  - "+port"
+  - "${BIOHAZARD_SERVER_PORT:-27017}"
 
 services:
   cs16-state-init:
@@ -219,8 +223,8 @@ services:
     image: ${CS16_RESPAWN_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}
     container_name: cs16-respawn0
     ports:
-      - "${SERVER_PORT:-27016}:27015/tcp"
-      - "${SERVER_PORT:-27016}:27015/udp"
+      - "${SERVER_PORT:-27016}:${SERVER_PORT:-27016}/tcp"
+      - "${SERVER_PORT:-27016}:${SERVER_PORT:-27016}/udp"
     command: *cs16_respawn_cmd
     volumes: *cs16_runtime_volumes_respawn
 #    networks:
@@ -240,8 +244,8 @@ services:
     image: ${CS16_BIOHAZARD_IMAGE:-ghcr.io/7err0x/cs16-biohazard:latest}
     container_name: cs16-biohazard0
     ports:
-      - "${BIOHAZARD_SERVER_PORT:-27017}:27015/tcp"
-      - "${BIOHAZARD_SERVER_PORT:-27017}:27015/udp"
+      - "${BIOHAZARD_SERVER_PORT:-27017}:${BIOHAZARD_SERVER_PORT:-27017}/tcp"
+      - "${BIOHAZARD_SERVER_PORT:-27017}:${BIOHAZARD_SERVER_PORT:-27017}/udp"
     command: *cs16_biohazard_cmd
     volumes: *cs16_runtime_volumes_biohazard
 #    networks:

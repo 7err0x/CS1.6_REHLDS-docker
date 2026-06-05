@@ -1,0 +1,16 @@
+# Fallback when rootless bridge + published ports cannot reach LAN clients.
+# Prefer passt (pasta): ./docker/rootless-pasta/setup.sh — see docker/ROOTLESS.md
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.rootless-hostnet.yml --profile respawn up -d
+#
+# Clients use SERVER_PORT from .env (default 27016); HLDS binds it via +port.
+
+services:
+  cs16:
+    network_mode: host
+    ports: []
+
+  cs16-biohazard:
+    network_mode: host
+    ports: []
