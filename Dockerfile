@@ -9,8 +9,8 @@
 FROM debian:bookworm-slim AS amxx-build
 
 ARG LASERMINE_GIT_SHA=7e7a285254ba699a1fcfbb43a7378bfc63acb309
-ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz
-ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz
+ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-base-linux.tar.gz
+ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-cstrike-linux.tar.gz
 
 RUN dpkg --add-architecture i386 \
     && apt-get update \
@@ -149,8 +149,8 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/mapcycle.txt \
     /opt/steam/hlds/cstrike/mapcycle.biohazard.txt \
     /opt/steam/hlds/cstrike/maps
 
-ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz
-ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz
+ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-base-linux.tar.gz
+ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-cstrike-linux.tar.gz
 
 RUN curl -fsSL -o /tmp/amxx-base.tgz "${AMXX_BASE_URL}" \
     && tar -xzf /tmp/amxx-base.tgz -C /opt/steam/hlds/cstrike \

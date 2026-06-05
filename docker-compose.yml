@@ -34,8 +34,8 @@ x-cs16-build-args: &cs16_build_args
   METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.149}
   REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.30.0.814}
   REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
-  AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz}
-  AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz}
+  AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-base-linux.tar.gz}
+  AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-cstrike-linux.tar.gz}
   LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
   REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
 
