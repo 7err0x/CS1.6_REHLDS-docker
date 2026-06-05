@@ -10,6 +10,17 @@
 - custom maps download script
 - and FastDL for faster download times when connecting to server. 
 
+**Demo server**
+
+<!-- Sponsor: zm.pixelz.ro — live stats via GameTracker (https://www.gametracker.com/) -->
+<p align="center">
+  <a href="https://www.gametracker.com/server_info/zm.pixelz.ro:27015/" title="zm.pixelz.ro on GameTracker">
+    <img src="https://cache.gametracker.com/server_info/zm.pixelz.ro:27015/b_560_95_gt_green.png" alt="zm.pixelz.ro OldSchool Biohazard FOSS" width="560" height="95">
+  </a>
+  <br>
+  <sub><b>zm.pixelz.ro:27015</b> · Biohazard Zombie Mod · <a href="steam://connect/zm.pixelz.ro:27015">connect</a> · <a href="https://www.gametracker.com/server_info/zm.pixelz.ro:27015/">stats</a></sub>
+</p>
+
 **Other gamemodes** can be added by baking another `server.cfg` / `plugins.ini` profile in the [`Dockerfile`](Dockerfile) and a Compose service (same pattern as Biohazard). Feel free to fork this repo and add yours. Contribute by opening a PR.
 
 This image comes with:
