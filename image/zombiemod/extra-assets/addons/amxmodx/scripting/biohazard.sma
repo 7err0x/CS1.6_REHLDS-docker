@@ -2458,7 +2458,10 @@ public display_classmenu(id, pos)
   	for(a = start; a < end; ++a) 
 	{
 		keys |= (1<<b)
-		len += formatex(menubody[len], 511 - len,"%d. %s^n", ++b, g_class_name[a])
+		if(g_class_desc[a][0])
+			len += formatex(menubody[len], 511 - len, "%d. %s - %s^n", ++b, g_class_name[a], g_class_desc[a])
+		else
+			len += formatex(menubody[len], 511 - len, "%d. %s^n", ++b, g_class_name[a])
   	}
 
   	if(end != maxitem)
@@ -2489,7 +2492,15 @@ public action_class(id, key)
 				return PLUGIN_HANDLED
 
 			g_mutate[id] = idx
-			client_print(id, print_chat, "%L", id, "MENU_CHANGECLASS", g_class_name[g_mutate[id]])
+			if(g_class_desc[g_mutate[id]][0])
+			{
+				static classlabel[64]
+				formatex(classlabel, charsmax(classlabel), "%s - %s",
+					g_class_name[g_mutate[id]], g_class_desc[g_mutate[id]])
+				client_print(id, print_chat, "%L", id, "MENU_CHANGECLASS", classlabel)
+			}
+			else
+				client_print(id, print_chat, "%L", id, "MENU_CHANGECLASS", g_class_name[g_mutate[id]])
 		}
 	}
 	return PLUGIN_HANDLED
@@ -2557,7 +2568,7 @@ public register_zombieclasses(filename[])
 				if(sectlen <= 0 || sectlen > charsmax(classname))
 					continue
 
-				copy(classname, charsmax(classname), line[1])
+				copy(classname, sectlen, line[1])
 
 				if(register_class(classname) == -1)
 					break
