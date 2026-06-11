@@ -10,7 +10,9 @@
 #define pev_flare pev_iuser4
 #define flare_id 1337
 #define MAX_FLARES 32
-#define FLARE_DLIGHT_LIFE 3
+// Refresh interval and TE_DLIGHT life (0.1s units) must stay in sync to avoid flicker.
+#define FLARE_DLIGHT_INTERVAL 0.1
+#define FLARE_DLIGHT_LIFE 10
 
 #define write_coord_f(%1) engfunc(EngFunc_WriteCoord, %1)
 
@@ -19,6 +21,8 @@ new const g_flare_model[] = "models/w_flare.mdl"
 new cvar_smokeflare, cvar_smokeflare_dur, cvar_smokeflare_radius
 new g_flares[MAX_FLARES]
 new g_flare_count
+new g_maxplayers
+new Float:g_flare_dlight_next
 
 stock bool:is_ent_flare(ent)
 {
@@ -36,6 +40,8 @@ public plugin_precache()
 
 public plugin_init2()
 {
+	g_maxplayers = get_maxplayers()
+
 	register_forward(FM_SetModel, "fwd_setmodel")
 	register_forward(FM_StartFrame, "fwd_startframe")
 	RegisterHam(Ham_Think, "grenade", "ham_flare_block_think", 0)
@@ -85,6 +91,13 @@ public fwd_startframe()
 		return
 
 	new Float:now = get_gametime()
+	new bool:update_lights
+
+	if (now >= g_flare_dlight_next)
+	{
+		update_lights = true
+		g_flare_dlight_next = now + FLARE_DLIGHT_INTERVAL
+	}
 
 	for (new i = g_flare_count - 1; i >= 0; i--)
 	{
@@ -106,7 +119,8 @@ public fwd_startframe()
 			continue
 		}
 
-		flare_dlight(ent)
+		if (update_lights)
+			flare_dlight(ent)
 	}
 }
 
@@ -152,16 +166,24 @@ stock flare_dlight(ent)
 	if (radius < 1)
 		radius = 1
 
-	message_begin(MSG_BROADCAST, SVC_TEMPENTITY)
-	write_byte(TE_DLIGHT)
-	write_coord_f(origin[0])
-	write_coord_f(origin[1])
-	write_coord_f(origin[2])
-	write_byte(radius)
-	write_byte(255)
-	write_byte(255)
-	write_byte(255)
-	write_byte(FLARE_DLIGHT_LIFE)
-	write_byte(0)
-	message_end()
+	// Per-human only: zombies use TE_DLIGHT for NVG bubble (bh_nvg_bubble) and the
+	// engine dynamic-light pool is small — broadcast white flare lights caused NVG flicker.
+	for (new id = 1; id <= g_maxplayers; id++)
+	{
+		if (!is_user_alive(id) || is_user_zombie(id))
+			continue
+
+		message_begin(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, _, id)
+		write_byte(TE_DLIGHT)
+		write_coord_f(origin[0])
+		write_coord_f(origin[1])
+		write_coord_f(origin[2])
+		write_byte(radius)
+		write_byte(255)
+		write_byte(255)
+		write_byte(255)
+		write_byte(FLARE_DLIGHT_LIFE)
+		write_byte(0)
+		message_end()
+	}
 }

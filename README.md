@@ -33,6 +33,7 @@ This image comes with:
 | API | [ReAPI](https://github.com/rehlds/ReAPI) | GPLv3 |
 | Auth | [ReUnion](https://github.com/rehlds/ReUnion) | GPLv3 |
 | Modding | [AMX Mod X 1.9](https://github.com/alliedmodders/amxmodx) | GPLv3 |
+| Bots (Biohazard only) | [E-BOT 1.10](https://github.com/EfeDursun125/CS-EBOT) | MPL-2.0 |
 | Infection mod | [Biohazard](https://forums.alliedmods.net/showthread.php?t=68523) + this repo’s ports | GPLv2+ |
 | Lasermines | [Amxx-Laser-TripMine-Entity](https://github.com/7err0x/Amxx-Laser-TripMine-Entity) (git submodule, Biohazard build) | See upstream |
 
@@ -101,6 +102,7 @@ Upstream components listed above retain their own licenses. **Game assets** (map
   - [Biohazard AMXX plugin (included)](#1-biohazard-amxx-plugin-included)
   - [Compiling plugins locally (optional)](#2-compiling-plugins-locally-optional)
   - [Start the Biohazard server](#3-start-the-biohazard-server)
+  - [E-BOT (zombie-mod bots)](#ebot-zombie-mod-bots)
   - [RCON: infect a player or end the round (Biohazard)](#rcon-infect-a-player-or-end-the-round-biohazard)
   - [Other zombie / ReAPI stacks (not in this image)](#4-other-zombie--reapi-stacks-not-in-this-image)
 - [Managing the server (Docker)](#managing-the-server-docker)
@@ -491,6 +493,72 @@ docker compose --profile biohazard up -d
 
 The profile mounts **`plugins-biohazard.ini`**, **`server-biohazard.cfg`**, and uses **`docker-compose`** so **`command`** retains **`./hlds_run … +map`** (no baked **`+map de_dust2`** override).
 
+### E-BOT (zombie-mod bots)
+
+The **`cs16-biohazard`** image ships **[E-BOT 1.10](https://github.com/EfeDursun125/CS-EBOT)** as a Metamod plugin (not on **`cs16-respawn`**). Load order: **ReUnion → E-BOT → AMXX**. E-BOT is aimed at **Zombie Plague / Biohazard**-style modes: human bots camp and flee, zombie bots chase and group.
+
+**Config files (edit in git, then rebuild the image):**
+
+| File | Role |
+|------|------|
+| [`cstrike/ebot/ebot-biohazard.cfg`](cstrike/ebot/ebot-biohazard.cfg) | Server overrides (`exec` from [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg)) |
+| [`cstrike/ebot/names.cfg`](cstrike/ebot/names.cfg) | One bot name per line (random pick on spawn) |
+| `addons/ebot/ebot.cfg` (in image) | Upstream defaults from the E-BOT release; not committed — change via overrides above |
+
+After editing, rebuild and recreate:
+
+```bash
+docker compose build cs16-biohazard
+docker compose --profile biohazard up -d --force-recreate cs16-biohazard
+```
+
+Smoke-test: **`./docker/test-ebot.sh`**.
+
+#### `ebot-biohazard.cfg` settings
+
+| Cvar | Default (repo) | What it does |
+|------|----------------|--------------|
+| `ebot_quota` | `8` | Number of E-BOT players. **`0`** = no bots (plugin still loads). |
+| `ebot_keep_slots` | `2` | Slots reserved for humans (`ebot_quota` + humans + `keep_slots` ≤ `maxplayers`). |
+| `ebot_zp_delay_custom` | `15.0` | Seconds after round start before bots attack; match **`bh_starttime`** in [`bh_cvars.cfg`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg). E-BOT also reads **`bh_starttime`** automatically. |
+| `ebot_download_waypoints` | `1` | Try to download `.ewp` waypoints when a map has none. |
+| `ebot_analyze_auto_start` | `1` | Auto-generate waypoints on unwaypointed maps (can be CPU-heavy). |
+| `ebot_name_tag` | `0` | `0` = plain names; `1` = `[E-BOT]` prefix; `2` = prefix + skill in name. |
+| `ebot_fake_ping` | `1` | Show plausible ping on scoreboard (`0` = zero ping). |
+| `ebot_use_flares` | `1` | Human bots use flares in dark areas (pairs with **customflashlight**). |
+| `ebot_zombie_count_as_path_cost` | `1` | Zombies add “cost” to nearby paths so humans route around hordes. |
+| `ebot_use_pathfinding_for_avoid` | `1` | Full A* flee logic for humans (`0` = simpler/cheaper avoid). |
+| `ebot_breakable_health_limit` | `5000.0` | Max breakable HP bots will melee (enemy **lasermines**, glass, etc.). |
+
+**Not in `ebot-biohazard.cfg` but useful** (set in that file or via RCON; defaults live in upstream **`ebot.cfg`**):
+
+| Cvar | Upstream default | What it does |
+|------|------------------|--------------|
+| `ebot_use_grenade_percent` | `60` | Chance human bots throw HE / flash / smoke when AI chooses to. Zombies do not throw. |
+| `ebot_stop_bots` | `0` | `1` = freeze all bot AI (temporary). |
+| `ebot_difficulty` | `4` | Bot skill `0`–`4` (`-1` = random per bot). |
+
+#### Bot names
+
+Edit **`cstrike/ebot/names.cfg`**: one name per line, `//` comments allowed. Rebuild the image. Names apply to newly spawned bots (map change or reconnect).
+
+#### Enable / disable
+
+| Goal | How |
+|------|-----|
+| **No bots, keep plugin** | `ebot_quota "0"` in **`ebot-biohazard.cfg`**, keep `exec addons/ebot/ebot-biohazard.cfg` in **`server-biohazard.cfg`**. |
+| **Pause bots** | RCON: `ebot_stop_bots 1` |
+| **Unload E-BOT** | Remove `linux addons/ebot/dlls/ebot.so` from the biohazard branch in [`Dockerfile`](Dockerfile) `plugins.ini` and rebuild. |
+
+Commenting out the `exec addons/ebot/ebot-biohazard.cfg` line only skips your overrides; Metamod still loads E-BOT with upstream **`ebot.cfg`** defaults (including **`ebot_quota "10"`**).
+
+#### Interaction with Biohazard / lasermines
+
+- **Grenades:** Human E-BOTs can throw (see **`ebot_use_grenade_percent`**). Biohazard gives bots HE when they are human; infected bots do not grenade.
+- **Lasermines:** E-BOTs **do not place** lasermines (no `+setlaser` AI; lasermine plugin skips bots on round start). They **can destroy** enemy mines as breakables if HP ≤ **`ebot_breakable_health_limit`**.
+
+Upstream docs: [CS-EBOT](https://github.com/EfeDursun125/CS-EBOT) · [E-BOT blog](https://ebots-for-cs.blogspot.com/).
+
 ### RCON: infect a player or end the round (Biohazard)
 
 Join **`cs16-biohazard`**, set the password, then prefix admin commands with **`rcon`** (same flow as [RCON (remote console)](#rcon-remote-console) below).
@@ -702,7 +770,8 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 ## Metamod, ReUnion, and AMX Mod X
 
 - **Metamod-r** is loaded from **`liblist.gam`** as upstream intended.
-- **`addons/metamod/plugins.ini`** loads **ReUnion first**, then **AMXX** (`amxmodx_mm_i386.so`). ReUnion must precede AMXX for mixed Steam / non‑Steam clients.
+- **`addons/metamod/plugins.ini`** loads **ReUnion first**, then **E-BOT** (Biohazard image only), then **AMXX** (`amxmodx_mm_i386.so`). ReUnion must precede AMXX for mixed Steam / non‑Steam clients.
+- **E-BOT** — see **[E-BOT (zombie-mod bots)](#ebot-zombie-mod-bots)** under the Biohazard profile (`cs16-biohazard` only).
 - **AMXX 1.9** ships **`modules.ini`** / **`plugins.ini`** from the official base tarball (no **`reapi`** line in **`modules.ini`**). If you add third‑party modules that duplicate **ReGameDLL**’s ReAPI, expect **“Already loaded”** or instability — test before enabling.
 - **Admins / menus / plugins:** see **[Using AMX Mod X](#using-amx-mod-x-amxx)** above; config file **`cstrike/amxmodx/users.ini`** ([Adding Admins](https://wiki.alliedmods.net/Adding_Admins_(AMX_Mod_X))).
 - **Custom plugins:** bind‑mount **`addons/amxmodx/configs/plugins.ini`** (and drop **`.amxx`** files under **`addons/amxmodx/plugins/`**) or bake them in a derived image.
