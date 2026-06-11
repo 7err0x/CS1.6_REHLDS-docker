@@ -1,6 +1,6 @@
 Git submodules vendored for image build.
 
-Amxx-Laser-TripMine-Entity (branch no-bind-system) — lasermine.sma and includes.
+Amxx-Laser-TripMine-Entity (branch master) — lasermine.sma and includes.
 Biohazard + ReUnion patches and default binds (v/c) live in the submodule.
 
 After clone:
@@ -9,5 +9,5 @@ After clone:
 
 Update lasermine:
 
-  cd vendor/Amxx-Laser-TripMine-Entity && git fetch && git checkout no-bind-system && git pull
+  cd vendor/Amxx-Laser-TripMine-Entity && git fetch && git checkout master && git pull
   cd ../.. && git add vendor/Amxx-Laser-TripMine-Entity

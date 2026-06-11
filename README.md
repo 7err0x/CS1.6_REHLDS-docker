@@ -282,7 +282,7 @@ Outputs: **`./data/cs16-game-assets/{maps,sound,wads,models,sprites}/`** — mou
 
 ### Lasermines (Biohazard humans)
 
-The image compiles **[Amxx Laser TripMine Entity](https://github.com/7err0x/Amxx-Laser-TripMine-Entity)** from git submodule **`vendor/Amxx-Laser-TripMine-Entity`** (**`no-bind-system`** branch, **Biohazard** build baked in). On join, humans get **`bind v +setlaser`** and **`bind c +dellaser`**. Server cvars/lang are baked from **`image/zombiemod/extra-assets/`** (see **`addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg`**):
+The image compiles **[Amxx Laser TripMine Entity](https://github.com/7err0x/Amxx-Laser-TripMine-Entity)** from git submodule **`vendor/Amxx-Laser-TripMine-Entity`** (**`master`** branch, **Biohazard** build baked in). On join, humans get **`bind v +setlaser`** and **`bind c +dellaser`**. Server cvars/lang are baked from **`image/zombiemod/extra-assets/`** (see **`addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg`**):
 
 - **2 mines** at the start of each round (`bh_ltm_amount`), up to **6** carried (`bh_ltm_max_amount`); buy more while inside the **buy zone** with enough **cash**.
 - **Buy** (survivors / humans only on this server): console **`buy_lasermine`**, or chat **`/lm`**, **`/buy lasermine`**, or **`say /lasermine`** (opens help). Price and buy-zone rules: **`bh_ltm_buy_price`**, **`bh_ltm_buy_zone`**, **`bh_ltm_buy_mode`** in the same file.

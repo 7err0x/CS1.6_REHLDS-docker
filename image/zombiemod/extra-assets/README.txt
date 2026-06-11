@@ -7,7 +7,7 @@ Recommended from the Biohazard pack (reduces AMXX warnings):
 - addons/amxmodx/data/lang/biohazard.txt
 - addons/amxmodx/configs/biohazard.cfg (or whatever configs the pack documents)
 
-LaserMine sources: git submodule vendor/Amxx-Laser-TripMine-Entity (branch no-bind-system; compiled in Dockerfile).
+LaserMine sources: git submodule vendor/Amxx-Laser-TripMine-Entity (branch master; compiled in Dockerfile).
 This pack provides runtime configs/lang the image merges at build:
 - addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg
 - addons/amxmodx/configs/plugins/lasermine/resources.json

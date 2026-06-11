@@ -30,7 +30,6 @@ COPY vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/lasermin
 COPY vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_zombie.inc \
 	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_util.inc \
 	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_const.inc \
-	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_resources.inc \
 	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine.inc \
 	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/beams.inc \
 	./include/
