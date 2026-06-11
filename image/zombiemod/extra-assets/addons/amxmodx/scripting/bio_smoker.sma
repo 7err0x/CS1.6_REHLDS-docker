@@ -22,7 +22,7 @@
 #endif
 
 #define PLUGIN "[BH] Smoker tongue"
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define AUTHOR "4eRT / BH port"
 
 #define CLASS_NAME "Smoker"
@@ -38,7 +38,7 @@ new g_Line
 new g_maxplayers
 
 new cvar_enable, cvar_range, cvar_speed, cvar_cooldown, cvar_maxtime, cvar_breakdmg
-new cvar_use_key, cvar_hint, cvar_freeze_victim
+new cvar_use_key, cvar_hint, cvar_freeze_victim, cvar_bot_enable
 
 new g_hooked[33]
 new g_hooks_left[33]
@@ -73,6 +73,7 @@ public plugin_init2()
 	cvar_use_key = register_cvar("bh_smoker_use_key", "1")
 	cvar_hint = register_cvar("bh_smoker_hint", "1")
 	cvar_freeze_victim = register_cvar("bh_smoker_freeze_victim", "1")
+	cvar_bot_enable = register_cvar("bh_smoker_bot_enable", "1")
 
 	register_clcmd("+smoker_tongue", "cmd_tongue_on")
 	register_clcmd("-smoker_tongue", "cmd_tongue_off")
@@ -163,6 +164,9 @@ public fw_PlayerPreThink(id)
 	if (!is_smoker(id) || !game_started())
 		return FMRES_IGNORED
 
+	if (is_user_bot(id) && get_pcvar_num(cvar_bot_enable))
+		bot_smoker_update_hold(id)
+
 	if (g_hooked[id])
 	{
 		if (!tongue_wants_hold(id))
@@ -209,10 +213,21 @@ public drag_start(id)
 	}
 
 	new hooktarget, body
-	get_user_aiming(id, hooktarget, body, floatround(get_pcvar_float(cvar_range)))
 
-	if (!is_user_alive(hooktarget) || is_user_zombie(hooktarget))
-		return PLUGIN_HANDLED
+	if (is_user_bot(id) && get_pcvar_num(cvar_bot_enable))
+	{
+		hooktarget = bot_smoker_find_target(id)
+
+		if (!hooktarget)
+			return PLUGIN_HANDLED
+	}
+	else
+	{
+		get_user_aiming(id, hooktarget, body, floatround(get_pcvar_float(cvar_range)))
+
+		if (!is_user_alive(hooktarget) || is_user_zombie(hooktarget))
+			return PLUGIN_HANDLED
+	}
 
 	static Float:start[3], Float:origin[3]
 	pev(id, pev_origin, start)
@@ -397,4 +412,61 @@ stock tongue_wants_hold(id)
 		return 0
 
 	return (pev(id, pev_button) & IN_USE) ? 1 : 0
+}
+
+stock bot_smoker_update_hold(id)
+{
+	if (g_hooked[id])
+	{
+		g_tongue_held[id] = 1
+		return
+	}
+
+	g_tongue_held[id] = bot_smoker_find_target(id) ? 1 : 0
+}
+
+stock bot_smoker_find_target(id)
+{
+	new Float:maxrange = get_pcvar_float(cvar_range)
+	new best
+	new bestdist = floatround(maxrange) + 1
+
+	static Float:origin[3]
+	pev(id, pev_origin, origin)
+
+	for (new i = 1; i <= g_maxplayers; i++)
+	{
+		if (!is_user_alive(i) || is_user_zombie(i) || i == id)
+			continue
+
+		static Float:torigin[3]
+		pev(i, pev_origin, torigin)
+
+		new dist = floatround(get_distance_f(origin, torigin))
+
+		if (dist > floatround(maxrange) || dist >= bestdist)
+			continue
+
+		if (!smoker_can_hook_target(id, i))
+			continue
+
+		best = i
+		bestdist = dist
+	}
+
+	return best
+}
+
+stock bool:smoker_can_hook_target(id, target)
+{
+	static Float:start[3], Float:end[3]
+
+	pev(id, pev_origin, start)
+	start[2] += 16.0
+	pev(target, pev_origin, end)
+	end[2] += 16.0
+
+	engfunc(EngFunc_TraceLine, start, end, IGNORE_MONSTERS, id, 0)
+
+	return get_tr2(0, TR_pHit) == target
 }
