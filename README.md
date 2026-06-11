@@ -33,6 +33,7 @@ This image comes with:
 | API | [ReAPI](https://github.com/rehlds/ReAPI) | GPLv3 |
 | Auth | [ReUnion](https://github.com/rehlds/ReUnion) | GPLv3 |
 | Modding | [AMX Mod X 1.9](https://github.com/alliedmodders/amxmodx) | GPLv3 |
+| Bots (Biohazard only) | [E-BOT 1.10](https://github.com/EfeDursun125/CS-EBOT) | MPL-2.0 |
 | Infection mod | [Biohazard](https://forums.alliedmods.net/showthread.php?t=68523) + this repo’s ports | GPLv2+ |
 | Lasermines | [Amxx-Laser-TripMine-Entity](https://github.com/7err0x/Amxx-Laser-TripMine-Entity) (git submodule, Biohazard build) | See upstream |
 
@@ -702,7 +703,8 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 ## Metamod, ReUnion, and AMX Mod X
 
 - **Metamod-r** is loaded from **`liblist.gam`** as upstream intended.
-- **`addons/metamod/plugins.ini`** loads **ReUnion first**, then **AMXX** (`amxmodx_mm_i386.so`). ReUnion must precede AMXX for mixed Steam / non‑Steam clients.
+- **`addons/metamod/plugins.ini`** loads **ReUnion first**, then **E-BOT** (Biohazard image only), then **AMXX** (`amxmodx_mm_i386.so`). ReUnion must precede AMXX for mixed Steam / non‑Steam clients.
+- **E-BOT** ([`CS-EBOT`](https://github.com/EfeDursun125/CS-EBOT)) is baked into **`cs16-biohazard`** only (zombie-mod AI). Server overrides live in **`cstrike/ebot/ebot-biohazard.cfg`** (exec’d from **`server-biohazard.cfg`**); each cvar is commented there. Smoke-test with **`./docker/test-ebot.sh`**.
 - **AMXX 1.9** ships **`modules.ini`** / **`plugins.ini`** from the official base tarball (no **`reapi`** line in **`modules.ini`**). If you add third‑party modules that duplicate **ReGameDLL**’s ReAPI, expect **“Already loaded”** or instability — test before enabling.
 - **Admins / menus / plugins:** see **[Using AMX Mod X](#using-amx-mod-x-amxx)** above; config file **`cstrike/amxmodx/users.ini`** ([Adding Admins](https://wiki.alliedmods.net/Adding_Admins_(AMX_Mod_X))).
 - **Custom plugins:** bind‑mount **`addons/amxmodx/configs/plugins.ini`** (and drop **`.amxx`** files under **`addons/amxmodx/plugins/`**) or bake them in a derived image.

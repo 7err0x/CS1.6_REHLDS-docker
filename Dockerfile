@@ -176,6 +176,9 @@ RUN bash -c 'shopt -s nullglob; for p in /tmp/zombie-assets/*; do \
     && rm -rf /tmp/zombie-assets
 
 ARG REUNION_VERSION=0.2.0.25
+ARG EBOT_VERSION=1.10
+ARG EBOT_URL="https://github.com/EfeDursun125/CS-EBOT/releases/download/${EBOT_VERSION}/E-BOT.${EBOT_VERSION}.Beta.zip"
+
 RUN curl -fsSL -o /tmp/reunion.zip "https://github.com/rehlds/ReUnion/releases/download/${REUNION_VERSION}/reunion-${REUNION_VERSION}.zip" \
     && unzip -qo /tmp/reunion.zip -d /tmp/reunion \
     && install -d /opt/steam/hlds/cstrike/addons/reunion \
@@ -183,10 +186,32 @@ RUN curl -fsSL -o /tmp/reunion.zip "https://github.com/rehlds/ReUnion/releases/d
     && cp -v /tmp/reunion/reunion.cfg /opt/steam/hlds/cstrike/reunion.cfg \
     && rm -rf /tmp/reunion /tmp/reunion.zip
 
-RUN printf '%s\n%s\n' \
-    'linux addons/reunion/reunion_mm_i386.so' \
-    'linux addons/amxmodx/dlls/amxmodx_mm_i386.so' \
-    > /opt/steam/hlds/cstrike/addons/metamod/plugins.ini
+ARG CS16_PLUGINS_INI=
+COPY cstrike/ebot/ebot-biohazard.cfg /tmp/ebot-biohazard.cfg
+COPY cstrike/ebot/names.cfg /tmp/ebot-names.cfg
+RUN if [[ "${CS16_PLUGINS_INI}" == "plugins-biohazard.ini" ]]; then \
+      curl -fsSL -o /tmp/ebot.zip "${EBOT_URL}" \
+      && unzip -qo /tmp/ebot.zip -d /opt/steam/hlds/cstrike/addons/ \
+      && cp /tmp/ebot-biohazard.cfg /opt/steam/hlds/cstrike/addons/ebot/ebot-biohazard.cfg \
+      && cp /tmp/ebot-names.cfg /opt/steam/hlds/cstrike/addons/ebot/names.cfg \
+      && rm -f /tmp/ebot.zip /tmp/ebot-biohazard.cfg /tmp/ebot-names.cfg \
+      && chmod -R a+rX /opt/steam/hlds/cstrike/addons/ebot; \
+    else \
+      rm -f /tmp/ebot-biohazard.cfg /tmp/ebot-names.cfg; \
+    fi
+
+RUN if [[ "${CS16_PLUGINS_INI}" == "plugins-biohazard.ini" ]]; then \
+      printf '%s\n%s\n%s\n' \
+        'linux addons/reunion/reunion_mm_i386.so' \
+        'linux addons/ebot/dlls/ebot.so' \
+        'linux addons/amxmodx/dlls/amxmodx_mm_i386.so' \
+        > /opt/steam/hlds/cstrike/addons/metamod/plugins.ini; \
+    else \
+      printf '%s\n%s\n' \
+        'linux addons/reunion/reunion_mm_i386.so' \
+        'linux addons/amxmodx/dlls/amxmodx_mm_i386.so' \
+        > /opt/steam/hlds/cstrike/addons/metamod/plugins.ini; \
+    fi
 
 COPY cstrike/amxmodx/users.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini
 COPY cstrike/server.cfg /opt/steam/hlds/cstrike/server.cfg
@@ -240,6 +265,7 @@ RUN chown -R steam:steam /opt/steam/hlds/cstrike/addons/reunion \
     /opt/steam/hlds/cstrike/addons/amxmodx/data \
     /opt/steam/hlds/cstrike/reunion.cfg /opt/steam/hlds/cstrike/liblist.gam \
     /opt/steam/hlds/cstrike/motd.txt \
+    && { chown -R steam:steam /opt/steam/hlds/cstrike/addons/ebot 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/models 2>/dev/null || true; } \
     && { chown -R steam:steam /opt/steam/hlds/cstrike/sound 2>/dev/null || true; }
 
