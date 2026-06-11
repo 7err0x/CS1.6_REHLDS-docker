@@ -34,7 +34,7 @@ This image comes with:
 | Auth | [ReUnion](https://github.com/rehlds/ReUnion) | GPLv3 |
 | Modding | [AMX Mod X 1.9](https://github.com/alliedmodders/amxmodx) | GPLv3 |
 | Infection mod | [Biohazard](https://forums.alliedmods.net/showthread.php?t=68523) + this repo’s ports | GPLv2+ |
-| Lasermines | [Amxx-Laser-TripMine-Entity](https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity) (Biohazard build) | See upstream |
+| Lasermines | [Amxx-Laser-TripMine-Entity](https://github.com/7err0x/Amxx-Laser-TripMine-Entity) (git submodule, Biohazard build) | See upstream |
 
 **Repository licensing:** Original work in this repository (Dockerfiles, Compose files, scripts, configs, and plugin sources authored here) is licensed under **[GPL-3.0-or-later](LICENSE)**.
 
@@ -60,9 +60,10 @@ Upstream components listed above retain their own licenses. **Game assets** (map
    cp .env.example .env
    ```
 
-2. Build the game image (needs **network**; first build runs **SteamCMD** and downloads HLDS + ReHLDS/ReGameDLL/ReAPI — often **10–30+ minutes** and **~2 GB**). Then start:
+2. Initialize git submodules (lasermine sources), then build the game image (needs **network**; first build runs **SteamCMD** and downloads HLDS + ReHLDS/ReGameDLL/ReAPI — often **10–30+ minutes** and **~2 GB**). Then start:
 
    ```bash
+   git submodule update --init --recursive
    docker compose build
    docker compose up -d
    ```
@@ -281,12 +282,12 @@ Outputs: **`./data/cs16-game-assets/{maps,sound,wads,models,sprites}/`** — mou
 
 ### Lasermines (Biohazard humans)
 
-The image includes **[Amxx Laser TripMine Entity](https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity)** compiled with **Biohazard** support. Defaults (see **`addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg`** in the baked pack):
+The image compiles **[Amxx Laser TripMine Entity](https://github.com/7err0x/Amxx-Laser-TripMine-Entity)** from git submodule **`vendor/Amxx-Laser-TripMine-Entity`** (**`no-bind-system`** branch, **Biohazard** build baked in). On join, humans get **`bind v +setlaser`** and **`bind c +dellaser`**. Server cvars/lang are baked from **`image/zombiemod/extra-assets/`** (see **`addons/amxmodx/configs/plugins/lasermine/bh_ltm_cvars.cfg`**):
 
 - **2 mines** at the start of each round (`bh_ltm_amount`), up to **6** carried (`bh_ltm_max_amount`); buy more while inside the **buy zone** with enough **cash**.
 - **Buy** (survivors / humans only on this server): console **`buy_lasermine`**, or chat **`/lm`**, **`/buy lasermine`**, or **`say /lasermine`** (opens help). Price and buy-zone rules: **`bh_ltm_buy_price`**, **`bh_ltm_buy_zone`**, **`bh_ltm_buy_mode`** in the same file.
-- **Place**: bind a key to **`+setlaser`** or **`+setlm`** (release to finish).
-- **Pick up / remove your mine**: aim within ~128 units and hold **USE** (default **E**), or bind **`+dellaser`** / **`-dellaser`** (same hold/release pattern as **`+setlaser`** — use **`bind KEY +dellaser`**, not `bind KEY dellaser`). Upstream sources only hooked USE; this image also registers **`+dellaser`** so the in-plugin help matches behavior.
+- **Place**: **`V`** (**`+setlaser`**, set on join for humans; release to finish).
+- **Pick up / remove your mine**: hold **`C`** (**`+dellaser`**, set on join) or aim within ~128 units and hold **USE** (default **E**).
 - A **scrolling chat reminder** is set in **`cstrike/config/server-biohazard.cfg`** (`amx_scrollmsg`) — edit interval and text there (see [Server name, game mode, welcome text, and announcements](#server-name-game-mode-welcome-text-and-announcements)). In-game **`say lasermine`** uses **`addons/amxmodx/data/lang/lasermine.txt`** (`REFER` line).
 
 ### Zombie night vision
@@ -431,7 +432,7 @@ The canonical sources in this repo are **`image/zombiemod/extra-assets/addons/am
    - **Base:** [amxmodx-1.9.0-git5303-base-linux.tar.gz](https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-base-linux.tar.gz) (contains **`addons/amxmodx/scripting/amxxpc`** and includes).
    - **CS add-on:** [amxmodx-1.9.0-git5303-cstrike-linux.tar.gz](https://github.com/alliedmodders/amxmodx/releases/download/1.9.0.5303/amxmodx-1.9.0-git5303-cstrike-linux.tar.gz) (merge into the same **`cstrike/`** root so **`addons/amxmodx/modules/`** and includes are complete).
 
-2. **`amxxpc`** is a **32-bit** binary. On **64-bit Debian/Ubuntu** install multilib support, for example: **`sudo dpkg --add-architecture i386`**, then **`sudo apt-get install libc6-i386 zlib1g:i386 libstdc++6:i386`** (same idea as the **`lasermine-biohazard-compile`** stage in the Dockerfile).
+2. **`amxxpc`** is a **32-bit** binary. On **64-bit Debian/Ubuntu** install multilib support, for example: **`sudo dpkg --add-architecture i386`**, then **`sudo apt-get install libc6-i386 zlib1g:i386 libstdc++6:i386`** (same idea as the **`amxx-build`** stage in the Dockerfile). Run **`git submodule update --init`** so **`vendor/Amxx-Laser-TripMine-Entity`** is present before **`docker compose build`**.
 
 3. Copy **`biohazard.sma`** and **`biohazard.cfg`** into **`addons/amxmodx/scripting/`**. Copy **`image/zombiemod/extra-assets/addons/amxmodx/data/lang/biohazard.txt`** to **`addons/amxmodx/data/lang/biohazard.txt`** so the compiler can resolve the language file if needed.
 

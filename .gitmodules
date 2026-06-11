@@ -1,0 +1,4 @@
+[submodule "vendor/Amxx-Laser-TripMine-Entity"]
+	path = vendor/Amxx-Laser-TripMine-Entity
+	url = https://github.com/7err0x/Amxx-Laser-TripMine-Entity.git
+	branch = no-bind-system

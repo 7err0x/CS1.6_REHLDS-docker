@@ -36,7 +36,6 @@ x-cs16-build-args: &cs16_build_args
   REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
   AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-base-linux.tar.gz}
   AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-cstrike-linux.tar.gz}
-  LASERMINE_GIT_SHA: ${LASERMINE_GIT_SHA:-7e7a285254ba699a1fcfbb43a7378bfc63acb309}
   REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
 
 x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn

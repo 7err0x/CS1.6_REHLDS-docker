@@ -8,7 +8,6 @@
 # -----------------------------------------------------------------------------
 FROM debian:bookworm-slim AS amxx-build
 
-ARG LASERMINE_GIT_SHA=7e7a285254ba699a1fcfbb43a7378bfc63acb309
 ARG AMXX_BASE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-base-linux.tar.gz
 ARG AMXX_CSTRIKE_URL=https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-cstrike-linux.tar.gz
 
@@ -27,21 +26,14 @@ COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/*.sma ./
 COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/*.cfg ./
 COPY image/zombiemod/extra-assets/addons/amxmodx/scripting/include/ ./include/
 
-RUN curl -fsSL "https://github.com/AoiKagase/Amxx-Laser-TripMine-Entity/archive/${LASERMINE_GIT_SHA}.tar.gz" | tar -xzf - \
-    && srcdir="Amxx-Laser-TripMine-Entity-${LASERMINE_GIT_SHA}" \
-    && cp "${srcdir}/cstrike/addons/amxmodx/scripting/lasermine.sma" . \
-    && cp "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine_zombie.inc" \
-        "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine_util.inc" \
-        "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine_const.inc" \
-        "${srcdir}/cstrike/addons/amxmodx/scripting/include/lasermine.inc" \
-        "${srcdir}/cstrike/addons/amxmodx/scripting/include/beams.inc" \
-        include/ \
-    && rm -rf "${srcdir}" \
-    && sed -i 's|^// #define BIOHAZARD_SUPPORT|#define BIOHAZARD_SUPPORT|' lasermine.sma \
-    && { grep -q 'register_clcmd("+dellaser"' lasermine.sma || perl -0777 -i -pe 's/(\tregister_clcmd\("say",\s*"lm_say_lasermine"\);\n)/\tregister_clcmd("+dellaser", \t"lm_progress_remove");\n\tregister_clcmd("-dellaser", \t"lm_progress_stop");\n\n$1/sm' lasermine.sma; } \
-    && perl -0777 -i \
-        -pe 's/stock bool:check_plugin\(\)\s*\{(?:.|\n)*?\n}/stock bool:check_plugin()\n{\n\t\/\/ ReUnion sets reu_version; upstream mistakenly treats this as non-Steam and runs amxx pause lasermine.\n\treturn false;\n}/s' \
-        include/lasermine_util.inc
+COPY vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/lasermine.sma ./
+COPY vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_zombie.inc \
+	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_util.inc \
+	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_const.inc \
+	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine_resources.inc \
+	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/lasermine.inc \
+	vendor/Amxx-Laser-TripMine-Entity/cstrike/addons/amxmodx/scripting/include/beams.inc \
+	./include/
 
 COPY docker/amxx-compile-all.sh /usr/local/bin/amxx-compile-all.sh
 RUN chmod +x /usr/local/bin/amxx-compile-all.sh \
