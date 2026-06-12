@@ -17,6 +17,7 @@ PACK=(
 	bio_radar.sma
 	bio_smokeflare.sma
 	bio_smoker.sma
+	bio_ebot_schedule.sma
 	spawn_editor.sma
 	zp50_zombie_sounds.sma
 	zp50_ambience_sounds.sma
