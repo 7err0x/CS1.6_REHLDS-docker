@@ -300,7 +300,8 @@ new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cva
     cvar_randomclass, cvar_zombiemulti, cvar_knockback, cvar_knockback_dist, cvar_ammo,
     cvar_knockback_duck, cvar_killreward, cvar_painshockfree, cvar_zombie_class,
     cvar_shootobjects, cvar_pushpwr_weapon, cvar_pushpwr_zombie,
-    cvar_nvg_bubble, cvar_nvg_rgb, cvar_nvg_radius, cvar_nvg_decay, cvar_nvg_life
+    cvar_nvg_bubble, cvar_nvg_rgb, cvar_nvg_radius, cvar_nvg_decay, cvar_nvg_life,
+    cvar_sv_maxspeed
     
 new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_blockmodel[33], 
     bool:g_showmenu[33], bool:g_menufailsafe[33], bool:g_preinfect[33], bool:g_welcomemsg[33], 
@@ -557,6 +558,7 @@ public plugin_precache()
 	cvar_shootobjects = register_cvar("bh_shootobjects", "1")
 	cvar_pushpwr_weapon = register_cvar("bh_pushpwr_weapon", "2.0")
 	cvar_pushpwr_zombie = register_cvar("bh_pushpwr_zombie", "5.0")
+	cvar_sv_maxspeed = register_cvar("bh_sv_maxspeed", "0")
 	
 	new file[64]
 	get_configsdir(file, 63)
@@ -570,6 +572,7 @@ public plugin_precache()
 	register_spawnpoints(mapname)
 		
 	register_zombieclasses("bh_zombieclass.ini")
+	bh_sync_sv_maxspeed()
 	
 	precache_model(DEFAULT_PMODEL)
 	precache_model(DEFAULT_WMODEL)
@@ -1335,6 +1338,8 @@ public fwd_player_prethink(id)
 {
 	if(!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
+
+	bh_apply_zombie_speed(id)
 	
 	static flags
 	flags = pev(id, pev_flags)
@@ -2058,7 +2063,7 @@ public task_stripngive(taskid)
 		
 		set_pev(id, pev_weaponmodel2, "")
 		set_pev(id, pev_viewmodel2, g_class_wmodel[g_player_class[id]])
-		set_pev(id, pev_maxspeed, g_class_data[g_player_class[id]][DATA_SPEED])
+		bh_apply_zombie_speed(id)
 	}
 }
 
@@ -3088,6 +3093,48 @@ stock str_count(str[], searchchar)
 		count++
 
 	return count
+}
+
+stock bh_apply_zombie_speed(id)
+{
+	if(!is_user_alive(id) || !g_zombie[id])
+		return
+
+	static pclass
+	pclass = g_player_class[id]
+
+	if(pclass < 0 || pclass >= g_classcount)
+		return
+
+	static Float:speed
+	speed = g_class_data[pclass][DATA_SPEED]
+
+	engfunc(EngFunc_SetClientMaxspeed, id, speed)
+	set_pev(id, pev_maxspeed, speed)
+}
+
+stock bh_sync_sv_maxspeed()
+{
+	static Float:limit
+	limit = get_pcvar_float(cvar_sv_maxspeed)
+
+	if(limit <= 0.0)
+	{
+		limit = 320.0
+
+		for(new i = 0; i < g_classcount; i++)
+		{
+			if(g_class_data[i][DATA_SPEED] > limit)
+				limit = g_class_data[i][DATA_SPEED]
+		}
+
+		limit += 50.0
+	}
+
+	if(limit < 320.0)
+		limit = 320.0
+
+	set_cvar_float("sv_maxspeed", limit)
 }
 
 stock reset_user_model(index)
