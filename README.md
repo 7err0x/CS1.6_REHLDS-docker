@@ -552,6 +552,26 @@ Edit **`cstrike/ebot/names.cfg`**: one name per line, `//` comments allowed. Reb
 
 Commenting out the `exec addons/ebot/ebot-biohazard.cfg` line only skips your overrides; Metamod still loads E-BOT with upstream **`ebot.cfg`** defaults (including **`ebot_quota "10"`**).
 
+#### Dynamic bot quota (schedule)
+
+**`bio_ebot_schedule.amxx`** adjusts **`ebot_quota`** at runtime (cvars in [`bh_ebot_schedule.cfg`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_ebot_schedule.cfg) — **not** `bh_cvars.cfg`, which loads before this plugin registers). Baseline in [`ebot-biohazard.cfg`](cstrike/ebot/ebot-biohazard.cfg) is **`ebot_quota "0"`** so the plugin owns fill level when enabled.
+
+| Cvar | Default | Purpose |
+|------|---------|---------|
+| `bh_ebot_sched_enable` | `1` | Master switch (`0` = static `ebot_quota` from cfg only). |
+| `bh_ebot_require_human` | `1` | When `1`, use `bh_ebot_quota_empty` if no real players are connected. |
+| `bh_ebot_pause_without_humans` | `1` | When `require_human` is `0` and the server is empty, set `ebot_stop_bots 1` (frozen AI, lower CPU). Unpauses when someone joins. |
+| `bh_ebot_quota_empty` | `0` | Bot count on an empty server. |
+| `bh_ebot_quota_with_humans` | `8` | Bot count when humans are present and hour schedule is off. |
+| `bh_ebot_sched_use_hours` | `1` | Enable peak/off-peak hours (local server time). |
+| `bh_ebot_sched_peak_start` / `peak_end` | `22` / `10` | Peak window (`22`→`10` = 10 PM–9:59 AM overnight). |
+| `bh_ebot_sched_quota_peak` | `8` | Bots during peak hours (humans must be online if `require_human`). |
+| `bh_ebot_sched_quota_offpeak` | `0` | Bots outside peak hours. |
+| `bh_ebot_sched_check_secs` | `30` | Re-check interval (hour rollover + connect/disconnect). |
+| `bh_ebot_sched_debug` | `0` | Log quota changes to AMXX log. |
+
+**Example — 0 bots when empty, 2 bots only 10 PM–10 AM after someone joins:** `bh_ebot_require_human 1`, `bh_ebot_sched_quota_peak 2`, `bh_ebot_sched_quota_offpeak 0`, `peak_start 22`, `peak_end 10`.
+
 #### Interaction with Biohazard / lasermines
 
 - **Grenades:** Human E-BOTs can throw (see **`ebot_use_grenade_percent`**). Biohazard gives bots HE when they are human; infected bots do not grenade.
