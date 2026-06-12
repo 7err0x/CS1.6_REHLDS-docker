@@ -17,7 +17,9 @@ mkdir -p \
 	"${STATE}/sound" \
 	"${STATE}/models" \
 	"${STATE}/sprites" \
-	"${STATE}/wads"
+	"${STATE}/wads" \
+	"${STATE}/ebot-waypoints" \
+	"${STATE}/ebot-logs"
 
 seed_dir_from_bootstrap() {
 	local name=$1
@@ -43,7 +45,7 @@ seed_dir_from_bootstrap() {
 	chown steam:steam "$marker" 2>/dev/null || true
 }
 
-for subdir in maps sound models sprites wads; do
+for subdir in maps sound models sprites wads ebot-waypoints ebot-logs; do
 	seed_dir_from_bootstrap "$subdir"
 done
 

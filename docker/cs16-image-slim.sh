@@ -25,6 +25,15 @@ if [[ -d "${CSTRIKE}/addons/amxmodx/data" ]]; then
 	mkdir -p "${BOOT}/amxx-data"
 	cp -a "${CSTRIKE}/addons/amxmodx/data/." "${BOOT}/amxx-data/"
 fi
+EBOT_DIR="${CSTRIKE}/addons/ebot"
+if [[ -d "${EBOT_DIR}/waypoints" ]]; then
+	mkdir -p "${BOOT}/ebot-waypoints"
+	cp -a "${EBOT_DIR}/waypoints/." "${BOOT}/ebot-waypoints/"
+fi
+if [[ -d "${EBOT_DIR}/logs" ]]; then
+	mkdir -p "${BOOT}/ebot-logs"
+	cp -a "${EBOT_DIR}/logs/." "${BOOT}/ebot-logs/" 2>/dev/null || true
+fi
 
 echo "[cs16-image-slim] Stripping unused valve/ content..."
 rm -rf \
@@ -77,6 +86,15 @@ done
 
 rm -rf "${CSTRIKE}/addons/amxmodx/data/vault"
 ln -s "${STATE}/amxx-data-${PROFILE}/vault" "${CSTRIKE}/addons/amxmodx/data/vault"
+
+if [[ -d "${EBOT_DIR}/waypoints" ]]; then
+	rm -rf "${EBOT_DIR}/waypoints"
+	ln -s "${STATE}/ebot-waypoints" "${EBOT_DIR}/waypoints"
+fi
+if [[ -d "${EBOT_DIR}/logs" ]]; then
+	rm -rf "${EBOT_DIR}/logs"
+	ln -s "${STATE}/ebot-logs" "${EBOT_DIR}/logs"
+fi
 
 echo "[cs16-image-slim] Removing SteamCMD / 64-bit HLDS artifacts..."
 rm -rf \

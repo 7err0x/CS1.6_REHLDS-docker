@@ -46,4 +46,8 @@ IMG="$("${COMPOSE[@]}" images -q "$SERVICE" | head -1)"
 INI="$(docker run --rm --entrypoint cat "$IMG" /opt/steam/hlds/cstrike/addons/metamod/plugins.ini)"
 echo "$INI" | rg -q "ebot.so" || fail "ebot.so missing from plugins.ini in image"
 
+WP_LINK="$(docker run --rm --entrypoint readlink "$IMG" /opt/steam/hlds/cstrike/addons/ebot/waypoints)"
+[[ "$WP_LINK" == "/var/cs16/state/ebot-waypoints" ]] \
+	|| fail "addons/ebot/waypoints not linked to cs16-state (got: ${WP_LINK:-<missing>})"
+
 echo "[test-ebot] PASS: E-BOT present in image and server log."

@@ -111,4 +111,23 @@ if [[ -d "$BOOT/sprites" && -w "$CSTRIKE/sprites" ]]; then
 	done < <(find "$BOOT/sprites" -maxdepth 1 -type f -print0)
 fi
 
+# E-BOT (biohazard): waypoints/logs live on cs16-state; seed stock .ewp files on first boot.
+mkdir -p "${STATE}/ebot-waypoints" "${STATE}/ebot-logs" 2>/dev/null || true
+cs16_seed_ebot_state_dir() {
+	local name=$1
+	local boot_dir="${BOOT}/${name}"
+	local state_dir="${STATE}/${name}"
+	[[ -d "$boot_dir" && -d "$state_dir" && -w "$state_dir" ]] || return 0
+	if [[ -z "$(find "$state_dir" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+		echo "[cs16-entrypoint] Seeding state/${name} from bootstrap (first start)..."
+		while IFS= read -r -d '' f; do
+			rel="${f#"$boot_dir"/}"
+			[[ -e "$state_dir/$rel" ]] && continue
+			install -D -m0644 "$f" "$state_dir/$rel" 2>/dev/null || true
+		done < <(find "$boot_dir" -type f -print0 2>/dev/null)
+	fi
+}
+cs16_seed_ebot_state_dir ebot-waypoints
+cs16_seed_ebot_state_dir ebot-logs
+
 exec "$@"
