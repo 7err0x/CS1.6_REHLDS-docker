@@ -70,6 +70,10 @@ services:
     <<: *ebot_waypoints_service
     profiles:
       - ebot-waypoints
+    user: "0:0"
+    read_only: false
+    security_opt: []
+    cap_drop: []
     container_name: cs16-ebot-waypoints-bake0
     deploy:
       resources:
@@ -77,8 +81,9 @@ services:
           cpus: "4"
           memory: 2G
     environment:
-      EBOT_BAKE_MAP_TIMEOUT_SECS: ${EBOT_BAKE_MAP_TIMEOUT_SECS:-600}
+      EBOT_BAKE_MAP_TIMEOUT_SECS: ${EBOT_BAKE_MAP_TIMEOUT_SECS:-1800}
       EBOT_BAKE_RCON_PASSWORD: ${BIOHAZARD_RCON_PASSWORD:-changeme}
+    entrypoint: ["/usr/local/sbin/ebot-waypoints-bake-entrypoint.sh"]
     command: ["/usr/local/sbin/ebot-waypoints-bake.sh"]
 
 volumes:

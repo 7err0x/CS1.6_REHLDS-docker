@@ -5,7 +5,7 @@ set -euo pipefail
 CSTRIKE="${CSTRIKE_ROOT:-/opt/steam/hlds/cstrike}"
 STATE="${CS16_STATE_DIR:-/var/cs16/state}"
 SRC="${CS16_GAME_ASSETS_MOUNT:-/mnt/cs16-game-assets}"
-STEAM_HOME="${HOME:-/opt/steam}/.steam"
+STEAM_HOME="/opt/steam/.steam"
 
 cs16_dir_is_empty() {
 	local path=$1
@@ -88,12 +88,14 @@ if [[ "${CS16_SKIP_MERGE_GAME_ASSETS:-0}" != "1" && -d "$SRC" ]]; then
 	if [[ -d "$SRC/wads" && -w "$CSTRIKE/wads" ]]; then
 		while IFS= read -r -d '' w; do
 			cs16_copy_file "$w" "$CSTRIKE/wads/"
+			[[ -w "$CSTRIKE" ]] && cs16_copy_file "$w" "$CSTRIKE/"
 		done < <(find "$SRC/wads" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 	fi
 
 	if [[ -w "$CSTRIKE/wads" ]]; then
 		while IFS= read -r -d '' w; do
 			cs16_copy_file "$w" "$CSTRIKE/wads/"
+			[[ -w "$CSTRIKE" ]] && cs16_copy_file "$w" "$CSTRIKE/"
 		done < <(find "$SRC" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 	fi
 fi

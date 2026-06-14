@@ -7,7 +7,7 @@ Layout (matches addons/ebot/waypoints/ inside HLDS):
 Production mounts this folder read-only at /mnt/cs16-ebot-waypoints.
 Dev bake writes here via the ebot-waypoints compose profile.
 
-Bake / refresh (requires game BSPs in data/cs16-game-assets/maps/):
+Bake / refresh (requires game BSPs in data/cs16-game-assets/maps/ and WADs such as de_vegas.wad in data/cs16-game-assets/wads/):
   podman compose -f docker-compose.yml -f docker-compose.ebot-waypoints.yml \
     --profile ebot-waypoints build cs16-biohazard
   EBOT_BAKE_MAP_TIMEOUT_SECS=1800 podman compose -f docker-compose.yml -f docker-compose.ebot-waypoints.yml \

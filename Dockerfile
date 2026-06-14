@@ -128,8 +128,9 @@ COPY docker/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
 COPY docker/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
 COPY docker/cs16-image-slim.sh /usr/local/sbin/cs16-image-slim.sh
 COPY docker/ebot-waypoints-bake.sh /usr/local/sbin/ebot-waypoints-bake.sh
+COPY docker/ebot-waypoints-bake-entrypoint.sh /usr/local/sbin/ebot-waypoints-bake-entrypoint.sh
 RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-image-slim.sh \
-    /usr/local/sbin/ebot-waypoints-bake.sh
+    /usr/local/sbin/ebot-waypoints-bake.sh /usr/local/sbin/ebot-waypoints-bake-entrypoint.sh
 
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
@@ -301,12 +302,15 @@ RUN dpkg --add-architecture i386 \
         ca-certificates \
         libc6-i386 \
         lib32gcc-s1 \
+        util-linux \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=cs16-build --chown=steam:steam /opt/steam /opt/steam
 COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
 COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
 COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/ebot-waypoints-bake.sh /usr/local/sbin/ebot-waypoints-bake.sh
+COPY --from=cs16-build --chown=root:root /usr/local/sbin/ebot-waypoints-bake-entrypoint.sh /usr/local/sbin/ebot-waypoints-bake-entrypoint.sh
+RUN chmod +x /usr/local/sbin/ebot-waypoints-bake-entrypoint.sh
 COPY --from=cs16-build --chown=steam:steam /usr/local/share/cs16-bootstrap /usr/local/share/cs16-bootstrap
 
 USER steam
