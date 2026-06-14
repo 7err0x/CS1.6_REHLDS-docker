@@ -1,0 +1,85 @@
+# Dev / CI: bake E-BOT .ewp + matrix/*.emt for mapcycle.biohazard.txt.
+#
+# Prereq: game BSPs in ./data/cs16-game-assets/maps/ (download-assets profile).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ebot-waypoints.yml \
+#     --profile ebot-waypoints build cs16-biohazard
+#   docker compose -f docker-compose.yml -f docker-compose.ebot-waypoints.yml \
+#     --profile ebot-waypoints run --rm ebot-waypoints-bake
+#
+# Output is git-tracked under ./data/cs16-ebot-waypoints/ (mounted read-only on cs16-biohazard).
+
+x-ebot-waypoints-volumes: &ebot_waypoints_volumes
+  - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
+  - ./data/cs16-ebot-waypoints:/mnt/cs16-ebot-waypoints:z
+  - ./cstrike/ebot/bh_ebot_schedule-bake.cfg:/opt/steam/hlds/cstrike/addons/amxmodx/configs/bh_ebot_schedule.cfg:ro,z
+  - cs16-state:/var/cs16/state:z
+  - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/ebot-waypoints-bake:/opt/steam/hlds/cstrike/logs:z
+
+x-ebot-waypoints-service: &ebot_waypoints_service
+  init: true
+  read_only: true
+  user: steam
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:mode=1777,size=64m
+    - /run:mode=755,size=8m
+    - /opt/steam/.steam:mode=1777,size=64k
+  platform: linux/amd64
+  working_dir: /opt/steam/hlds
+  depends_on:
+    cs16-state-init:
+      condition: service_completed_successfully
+  image: ${CS16_BIOHAZARD_IMAGE:-ghcr.io/7err0x/cs16-biohazard:latest}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: cs16
+    args:
+      REHLDS_BUILD: ${REHLDS_BUILD:-3.15.0.896}
+      METAMOD_VERSION: ${METAMOD_VERSION:-1.3.0.149}
+      REGAMEDLL_VERSION: ${REGAMEDLL_VERSION:-5.30.0.814}
+      REAPI_VERSION: ${REAPI_VERSION:-5.29.0.358}
+      AMXX_BASE_URL: ${AMXX_BASE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-base-linux.tar.gz}
+      AMXX_CSTRIKE_URL: ${AMXX_CSTRIKE_URL:-https://github.com/alliedmodders/amxmodx/releases/download/1.10.0.5476/amxmodx-1.10.0-git5476-cstrike-linux.tar.gz}
+      REUNION_VERSION: ${REUNION_VERSION:-0.2.0.25}
+      CS16_SERVER_CONFIG: server-biohazard.cfg
+      CS16_PLUGINS_INI: plugins-biohazard.ini
+      CS16_MAPS_INI: maps-biohazard.ini
+  volumes: *ebot_waypoints_volumes
+  entrypoint: ["/usr/local/sbin/cs16-entrypoint.sh"]
+  restart: "no"
+
+services:
+  cs16-state-init:
+    user: "0:0"
+    entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
+    volumes:
+      - cs16-state:/var/cs16/state:z
+      - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs:z
+    image: ${CS16_BIOHAZARD_IMAGE:-ghcr.io/7err0x/cs16-biohazard:latest}
+    profiles:
+      - ebot-waypoints
+    restart: "no"
+    container_name: cs16-state-init-ebot0
+
+  ebot-waypoints-bake:
+    <<: *ebot_waypoints_service
+    profiles:
+      - ebot-waypoints
+    container_name: cs16-ebot-waypoints-bake0
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 2G
+    environment:
+      EBOT_BAKE_MAP_TIMEOUT_SECS: ${EBOT_BAKE_MAP_TIMEOUT_SECS:-600}
+      EBOT_BAKE_RCON_PASSWORD: ${BIOHAZARD_RCON_PASSWORD:-changeme}
+    command: ["/usr/local/sbin/ebot-waypoints-bake.sh"]
+
+volumes:
+  cs16-state:

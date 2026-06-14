@@ -111,8 +111,22 @@ if [[ -d "$BOOT/sprites" && -w "$CSTRIKE/sprites" ]]; then
 	done < <(find "$BOOT/sprites" -maxdepth 1 -type f -print0)
 fi
 
-# E-BOT (biohazard): waypoints/logs live on cs16-state; seed stock .ewp files on first boot.
-mkdir -p "${STATE}/ebot-waypoints" "${STATE}/ebot-logs" 2>/dev/null || true
+# E-BOT (biohazard): waypoints on git-tracked bind mount; logs on cs16-state.
+EBOT_WP="${CS16_EBOT_WAYPOINTS_MOUNT:-/mnt/cs16-ebot-waypoints}"
+mkdir -p "${EBOT_WP}/matrix" "${STATE}/ebot-logs" 2>/dev/null || true
+cs16_seed_ebot_from_bootstrap() {
+	local boot_dir="${BOOT}/ebot-waypoints"
+	local mapcycle="${CSTRIKE}/mapcycle.biohazard.txt"
+	[[ -d "$boot_dir" && -d "$EBOT_WP" && -w "$EBOT_WP" && -f "$mapcycle" ]] || return 0
+	while IFS= read -r map; do
+		[[ -n "$map" ]] || continue
+		local src="${boot_dir}/${map}.ewp"
+		local dest="${EBOT_WP}/${map}.ewp"
+		[[ -f "$src" && ! -e "$dest" ]] || continue
+		install -m0644 "$src" "$dest" 2>/dev/null || true
+	done < <(grep -vE '^\s*(//|#|$)' "$mapcycle" | awk '{print $1}')
+}
+cs16_seed_ebot_from_bootstrap
 cs16_seed_ebot_state_dir() {
 	local name=$1
 	local boot_dir="${BOOT}/${name}"
@@ -127,7 +141,6 @@ cs16_seed_ebot_state_dir() {
 		done < <(find "$boot_dir" -type f -print0 2>/dev/null)
 	fi
 }
-cs16_seed_ebot_state_dir ebot-waypoints
 cs16_seed_ebot_state_dir ebot-logs
 
 exec "$@"

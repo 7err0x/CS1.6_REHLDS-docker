@@ -45,6 +45,7 @@ x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
 
 x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
   - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
+  - ./data/cs16-ebot-waypoints:/mnt/cs16-ebot-waypoints:ro,z
   - cs16-state:/var/cs16/state:z
   - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs:z
 

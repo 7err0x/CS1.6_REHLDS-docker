@@ -514,6 +514,22 @@ docker compose --profile biohazard up -d --force-recreate cs16-biohazard
 
 Smoke-test: **`./docker/test-ebot.sh`**.
 
+**Waypoints + distance matrix** (`.ewp` + `matrix/*.emt`) live in git-tracked **[`data/cs16-ebot-waypoints/`](data/cs16-ebot-waypoints/)**, mounted read-only on **`cs16-biohazard`** at `/mnt/cs16-ebot-waypoints`. Bake locally (HLDS auto-analyzes each map + builds the matrix):
+
+```bash
+# Prereq: BSPs in data/cs16-game-assets/maps/
+podman compose --profile download-assets run --rm download-game-assets
+
+podman compose -f docker-compose.yml -f docker-compose.ebot-waypoints.yml \
+  --profile ebot-waypoints build cs16-biohazard
+EBOT_BAKE_MAP_TIMEOUT_SECS=1800 podman compose -f docker-compose.yml -f docker-compose.ebot-waypoints.yml \
+  --profile ebot-waypoints run --rm ebot-waypoints-bake
+```
+
+(`docker compose` works the same if you use Docker instead of Podman.) Large `zm_*` maps may need **`EBOT_BAKE_MAP_TIMEOUT_SECS=1800`** (30 min per map); already-baked maps are skipped on re-run.
+
+Commit new files under **`data/cs16-ebot-waypoints/`** (including **`matrix/`**).
+
 #### `ebot-biohazard.cfg` settings
 
 | Cvar | Default (repo) | What it does |
@@ -521,8 +537,7 @@ Smoke-test: **`./docker/test-ebot.sh`**.
 | `ebot_quota` | `8` | Number of E-BOT players. **`0`** = no bots (plugin still loads). |
 | `ebot_keep_slots` | `2` | Slots reserved for humans (`ebot_quota` + humans + `keep_slots` ≤ `maxplayers`). |
 | `ebot_zp_delay_custom` | `15.0` | Seconds after round start before bots attack; match **`bh_starttime`** in [`bh_cvars.cfg`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg). E-BOT also reads **`bh_starttime`** automatically. |
-| `ebot_download_waypoints` | `1` | Try to download `.ewp` waypoints when a map has none. |
-| `ebot_analyze_auto_start` | `1` | Auto-generate waypoints on unwaypointed maps (can be CPU-heavy). |
+| `ebot_analyze_auto_start` | `1` | Auto-generate waypoints on unwaypointed maps (can be CPU-heavy). Pre-bake via **`ebot-waypoints-bake`** to avoid this on production. |
 | `ebot_name_tag` | `0` | `0` = plain names; `1` = `[E-BOT]` prefix; `2` = prefix + skill in name. |
 | `ebot_fake_ping` | `1` | Show plausible ping on scoreboard (`0` = zero ping). |
 | `ebot_use_flares` | `1` | Human bots use flares in dark areas (pairs with **customflashlight**). |

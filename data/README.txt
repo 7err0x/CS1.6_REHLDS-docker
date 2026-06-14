@@ -1,5 +1,7 @@
 Extras volume for **`cs16`** / **`cs16-biohazard`** / **`fastdl`**.
 
+**E-BOT waypoints** (separate, git-tracked): **`data/cs16-ebot-waypoints/`** — see that folder’s **`README.txt`** and **`docker-compose.ebot-waypoints.yml`**.
+
 ------------------------------------------------------------------------------
 A) Automatic (URL list + Docker)
 ------------------------------------------------------------------------------

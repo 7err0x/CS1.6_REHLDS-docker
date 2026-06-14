@@ -87,9 +87,10 @@ done
 rm -rf "${CSTRIKE}/addons/amxmodx/data/vault"
 ln -s "${STATE}/amxx-data-${PROFILE}/vault" "${CSTRIKE}/addons/amxmodx/data/vault"
 
+EBOT_WAYPOINTS_MOUNT="${CS16_EBOT_WAYPOINTS_MOUNT:-/mnt/cs16-ebot-waypoints}"
 if [[ -d "${EBOT_DIR}/waypoints" ]]; then
 	rm -rf "${EBOT_DIR}/waypoints"
-	ln -s "${STATE}/ebot-waypoints" "${EBOT_DIR}/waypoints"
+	ln -s "${EBOT_WAYPOINTS_MOUNT}" "${EBOT_DIR}/waypoints"
 fi
 if [[ -d "${EBOT_DIR}/logs" ]]; then
 	rm -rf "${EBOT_DIR}/logs"

@@ -127,7 +127,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY docker/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
 COPY docker/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
 COPY docker/cs16-image-slim.sh /usr/local/sbin/cs16-image-slim.sh
-RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-image-slim.sh
+COPY docker/ebot-waypoints-bake.sh /usr/local/sbin/ebot-waypoints-bake.sh
+RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-image-slim.sh \
+    /usr/local/sbin/ebot-waypoints-bake.sh
 
 COPY image/mapcycle.txt /opt/steam/hlds/cstrike/mapcycle.txt
 COPY image/mapcycle.biohazard.txt /opt/steam/hlds/cstrike/mapcycle.biohazard.txt
@@ -188,16 +190,18 @@ RUN curl -fsSL -o /tmp/reunion.zip "https://github.com/rehlds/ReUnion/releases/d
 
 ARG CS16_PLUGINS_INI=
 COPY cstrike/ebot/ebot-biohazard.cfg /tmp/ebot-biohazard.cfg
+COPY cstrike/ebot/ebot-waypoints-bake.cfg /tmp/ebot-waypoints-bake.cfg
 COPY cstrike/ebot/names.cfg /tmp/ebot-names.cfg
 RUN if [[ "${CS16_PLUGINS_INI}" == "plugins-biohazard.ini" ]]; then \
       curl -fsSL -o /tmp/ebot.zip "${EBOT_URL}" \
       && unzip -qo /tmp/ebot.zip -d /opt/steam/hlds/cstrike/addons/ \
       && cp /tmp/ebot-biohazard.cfg /opt/steam/hlds/cstrike/addons/ebot/ebot-biohazard.cfg \
+      && cp /tmp/ebot-waypoints-bake.cfg /opt/steam/hlds/cstrike/addons/ebot/ebot-waypoints-bake.cfg \
       && cp /tmp/ebot-names.cfg /opt/steam/hlds/cstrike/addons/ebot/names.cfg \
-      && rm -f /tmp/ebot.zip /tmp/ebot-biohazard.cfg /tmp/ebot-names.cfg \
+      && rm -f /tmp/ebot.zip /tmp/ebot-biohazard.cfg /tmp/ebot-waypoints-bake.cfg /tmp/ebot-names.cfg \
       && chmod -R a+rX /opt/steam/hlds/cstrike/addons/ebot; \
     else \
-      rm -f /tmp/ebot-biohazard.cfg /tmp/ebot-names.cfg; \
+      rm -f /tmp/ebot-biohazard.cfg /tmp/ebot-waypoints-bake.cfg /tmp/ebot-names.cfg; \
     fi
 
 RUN if [[ "${CS16_PLUGINS_INI}" == "plugins-biohazard.ini" ]]; then \
@@ -302,6 +306,7 @@ RUN dpkg --add-architecture i386 \
 COPY --from=cs16-build --chown=steam:steam /opt/steam /opt/steam
 COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
 COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
+COPY --from=cs16-build --chown=steam:steam /usr/local/sbin/ebot-waypoints-bake.sh /usr/local/sbin/ebot-waypoints-bake.sh
 COPY --from=cs16-build --chown=steam:steam /usr/local/share/cs16-bootstrap /usr/local/share/cs16-bootstrap
 
 USER steam
