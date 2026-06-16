@@ -82,6 +82,7 @@
 #define TASKID_DEADZOMBIE 891
 #define TASKID_DEADZOMBIE_INFECT 892
 #define TASKID_JOINRESPAWN 893
+#define TASKID_NV_SPEC_PLAYER 895
 
 #define EQUIP_PRI (1<<0)
 #define EQUIP_SEC (1<<1)
@@ -301,6 +302,7 @@ new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cva
     cvar_knockback_duck, cvar_killreward, cvar_painshockfree, cvar_zombie_class,
     cvar_shootobjects, cvar_pushpwr_weapon, cvar_pushpwr_zombie,
     cvar_nvg_bubble, cvar_nvg_rgb, cvar_nvg_radius, cvar_nvg_decay, cvar_nvg_life,
+    cvar_nvg_spectator, cvar_nvg_spec_rgb,
     cvar_sv_maxspeed
     
 new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_blockmodel[33], 
@@ -309,6 +311,7 @@ new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_block
     g_mutate[33], g_victim[33], 
     g_modelent[33], g_menuposition[33], g_player_class[33], g_player_weapons[33][2]
 new bool:g_bio_nv_client_on[33]
+new bool:g_bio_nv_spec_on[33]
 new Float:g_bio_nv_next_cmd[33]
 
 stock bh_broadcast_sound(const snd[])
@@ -533,6 +536,8 @@ public plugin_precache()
 	cvar_nvg_radius = register_cvar("bh_nvg_radius", "125")
 	cvar_nvg_decay = register_cvar("bh_nvg_decay", "10")
 	cvar_nvg_life = register_cvar("bh_nvg_life", "1")
+	cvar_nvg_spectator = register_cvar("bh_nvg_spectator", "1")
+	cvar_nvg_spec_rgb = register_cvar("bh_nvg_spec_rgb", "255255235")
 	cvar_respawnaszombie = register_cvar("bh_respawnaszombie", "1")
 	cvar_dead_zombie_respawn = register_cvar("bh_dead_zombie_respawn", "1")
 	cvar_dead_zombie_respawn_delay = register_cvar("bh_dead_zombie_respawn_delay", "60.0")
@@ -798,6 +803,7 @@ public client_connect(id)
 	g_hitdelay[id] = 0.0
 
 	g_bio_nv_client_on[id] = false
+	g_bio_nv_spec_on[id] = false
 	g_bio_nv_next_cmd[id] = 0.0
 	g_pending_infect[id] = false
 
@@ -831,6 +837,8 @@ public client_disconnect(id)
 	remove_task(TASKID_CHECKSPAWN + id)
 	remove_task(TASKID_JOINRESPAWN + id)
 	bio_cancel_dead_zombie_respawn(id)
+	bio_nv_spec_task_stop(id)
+	bio_nv_spec_off(id)
 
 	g_disconnected[id] = true
 	remove_user_model(g_modelent[id])
@@ -1140,7 +1148,10 @@ public logevent_round_end()
 
 	static id
 	for(id = 1; id <= g_maxplayers; id++)
+	{
 		bio_cancel_dead_zombie_respawn(id)
+		bio_nv_spec_off(id)
+	}
 	
 	set_task(0.1, "task_balanceteam", TASKID_BALANCETEAM)
 }
@@ -1454,12 +1465,7 @@ public fwd_cmdstart(id, handle, seed)
 
 public bio_clcmd_nightvision(id)
 {
-	new bubble = get_pcvar_num(cvar_nvg_bubble)
-
-	if(!bubble && !g_msg_nvgtoggle)
-		return PLUGIN_CONTINUE
-
-	if(id < 1 || id > g_maxplayers || !is_user_alive(id) || !g_zombie[id])
+	if(id < 1 || id > g_maxplayers)
 		return PLUGIN_CONTINUE
 
 	static Float:deadline
@@ -1469,6 +1475,34 @@ public bio_clcmd_nightvision(id)
 		return PLUGIN_HANDLED
 
 	g_bio_nv_next_cmd[id] = deadline + 0.31
+
+	// Dead / spectating: local TE_DLIGHT (zombie-style vision, no green NVGToggle overlay).
+	if(!is_user_alive(id))
+	{
+		if(!get_pcvar_num(cvar_nvg_spectator))
+			return PLUGIN_CONTINUE
+
+		if(g_bio_nv_spec_on[id])
+		{
+			emit_sound(id, CHAN_ITEM, BIO_SND_NVG_OFF, 0.96, ATTN_NORM, 0, PITCH_NORM)
+			bio_nv_spec_off(id)
+		}
+		else
+		{
+			emit_sound(id, CHAN_ITEM, BIO_SND_NVG_ON, 0.96, ATTN_NORM, 0, PITCH_NORM)
+			bio_nv_spec_on(id)
+		}
+
+		return PLUGIN_HANDLED
+	}
+
+	if(!g_zombie[id])
+		return PLUGIN_CONTINUE
+
+	new bubble = get_pcvar_num(cvar_nvg_bubble)
+
+	if(!bubble && !g_msg_nvgtoggle)
+		return PLUGIN_CONTINUE
 
 	static bool:on
 	on = !g_bio_nv_client_on[id]
@@ -1512,19 +1546,42 @@ public bio_nv_on_death_post(victim, killer, shouldgib)
 	if(victim < 1 || victim > g_maxplayers || !is_user_connected(victim))
 		return
 
-	if(!g_bio_nv_client_on[victim])
-		return
-
-	if(get_pcvar_num(cvar_nvg_bubble))
-		bio_nv_force_stock_off(victim)
-	else if(g_msg_nvgtoggle)
+	if(g_bio_nv_client_on[victim])
 	{
-		message_begin(MSG_ONE, g_msg_nvgtoggle, _, victim)
-		write_byte(0)
-		message_end()
+		if(get_pcvar_num(cvar_nvg_bubble))
+			bio_nv_force_stock_off(victim)
+		else if(g_msg_nvgtoggle)
+		{
+			message_begin(MSG_ONE, g_msg_nvgtoggle, _, victim)
+			write_byte(0)
+			message_end()
+		}
+
+		g_bio_nv_client_on[victim] = false
 	}
 
-	g_bio_nv_client_on[victim] = false
+	bio_nv_force_stock_off(victim)
+	fm_set_user_nvg(victim, 0)
+
+	if(get_pcvar_num(cvar_nvg_spectator))
+	{
+		emit_sound(victim, CHAN_ITEM, BIO_SND_NVG_ON, 0.96, ATTN_NORM, 0, PITCH_NORM)
+		bio_nv_spec_on(victim)
+	}
+}
+
+public task_nv_spec_player(taskid)
+{
+	new id = taskid - TASKID_NV_SPEC_PLAYER
+
+	if(!is_user_connected(id) || is_user_alive(id) || !g_bio_nv_spec_on[id]
+		|| !get_pcvar_num(cvar_nvg_spectator))
+	{
+		remove_task(taskid)
+		return
+	}
+
+	bio_nv_spec_dlight(id)
 }
 
 public fwd_spawn(ent)
@@ -1774,6 +1831,8 @@ public bacon_spawn_player_post(id)
 {	
 	if(!is_user_alive(id))
 		return HAM_IGNORED
+
+	bio_nv_spec_off(id)
 	
 	static team
 	team = fm_get_user_team(id)
@@ -2352,6 +2411,8 @@ public cure_user(id)
 
 		g_bio_nv_client_on[id] = false
 	}
+
+	bio_nv_spec_off(id)
 
 	reset_user_model(id)
 	fm_set_user_nvg(id, 0)
@@ -3013,10 +3074,10 @@ stock bio_nv_force_stock_off(id)
 	message_end()
 }
 
-stock bio_nv_parse_rgb(&red, &green, &blue)
+stock bio_nv_parse_rgb_cvar(pcvar, &red, &green, &blue)
 {
 	static color[12], num
-	get_pcvar_string(cvar_nvg_rgb, color, charsmax(color))
+	get_pcvar_string(pcvar, color, charsmax(color))
 	num = str_to_num(color)
 	red = num / 1000000
 	num %= 1000000
@@ -3024,10 +3085,24 @@ stock bio_nv_parse_rgb(&red, &green, &blue)
 	blue = num % 1000
 }
 
-stock bio_nv_bubble_dlight(id)
+stock bio_nv_parse_rgb(&red, &green, &blue)
+{
+	bio_nv_parse_rgb_cvar(cvar_nvg_rgb, red, green, blue)
+}
+
+stock bio_nv_parse_spec_rgb(&red, &green, &blue)
+{
+	bio_nv_parse_rgb_cvar(cvar_nvg_spec_rgb, red, green, blue)
+}
+
+stock bio_nv_dlight_at(id, origin_mode, red, green, blue, bool:unreliable = false, spec_light = 0)
 {
 	static origin[3]
-	get_user_origin(id, origin, 1)
+
+	if(spec_light)
+		bio_nv_spec_get_origin(id, origin)
+	else
+		get_user_origin(id, origin, origin_mode)
 
 	new Float:pos[3]
 	pos[0] = float(origin[0])
@@ -3038,19 +3113,30 @@ stock bio_nv_bubble_dlight(id)
 	if(radius < 1)
 		radius = 1
 
-	new decay = get_pcvar_num(cvar_nvg_decay)
-	if(decay < 0)
+	new decay, life
+
+	if(spec_light)
+	{
+		// Constant brightness between refreshes (no visible pulse).
 		decay = 0
+		life = 50
+	}
+	else
+	{
+		decay = get_pcvar_num(cvar_nvg_decay)
+		if(decay < 0)
+			decay = 0
 
-	new life = get_pcvar_num(cvar_nvg_life) * 10
-	if(life < 1)
-		life = 1
+		life = get_pcvar_num(cvar_nvg_life) * 10
+		if(life < 1)
+			life = 1
+	}
 
-	static red, green, blue
-	bio_nv_parse_rgb(red, green, blue)
+	if(unreliable)
+		message_begin(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, _, id)
+	else
+		message_begin(MSG_ONE, SVC_TEMPENTITY, _, id)
 
-	// Custom NVG Color (SAMURAI) — TE_DLIGHT bubble instead of full-screen NVGToggle.
-	message_begin(MSG_ONE_UNRELIABLE, SVC_TEMPENTITY, _, id)
 	write_byte(TE_DLIGHT)
 	write_coord_f(pos[0])
 	write_coord_f(pos[1])
@@ -3062,6 +3148,75 @@ stock bio_nv_bubble_dlight(id)
 	write_byte(life)
 	write_byte(decay)
 	message_end()
+}
+
+stock bio_nv_spec_get_origin(id, origin[3])
+{
+	if(get_user_origin(id, origin, 3))
+		return
+
+	static Float:pos[3], Float:ofs[3]
+	pev(id, pev_origin, pos)
+	pev(id, pev_view_ofs, ofs)
+	origin[0] = floatround(pos[0] + ofs[0])
+	origin[1] = floatround(pos[1] + ofs[1])
+	origin[2] = floatround(pos[2] + ofs[2])
+}
+
+stock bio_nv_bubble_dlight(id)
+{
+	static red, green, blue
+	bio_nv_parse_rgb(red, green, blue)
+	bio_nv_dlight_at(id, 1, red, green, blue, true)
+}
+
+stock bio_nv_spec_dlight(id)
+{
+	static red, green, blue
+	bio_nv_parse_spec_rgb(red, green, blue)
+	bio_nv_dlight_at(id, 3, red, green, blue, true, 1)
+}
+
+stock bio_nv_spec_task_start(id)
+{
+	if(task_exists(TASKID_NV_SPEC_PLAYER + id))
+		return
+
+	// Fallback when PlayerPreThink does not run for observers.
+	set_task(0.05, "task_nv_spec_player", TASKID_NV_SPEC_PLAYER + id, _, _, "b")
+}
+
+stock bio_nv_spec_task_stop(id)
+{
+	remove_task(TASKID_NV_SPEC_PLAYER + id)
+}
+
+stock bio_nv_spec_on(id)
+{
+	if(!is_user_connected(id))
+		return
+
+	bio_nv_force_stock_off(id)
+	fm_set_user_nvg(id, 0)
+	g_bio_nv_spec_on[id] = true
+	bio_nv_spec_dlight(id)
+	bio_nv_spec_task_start(id)
+}
+
+stock bio_nv_spec_off(id)
+{
+	bio_nv_spec_task_stop(id)
+
+	if(!g_bio_nv_spec_on[id])
+		return
+
+	g_bio_nv_spec_on[id] = false
+
+	if(is_user_connected(id))
+	{
+		bio_nv_force_stock_off(id)
+		fm_set_user_nvg(id, 0)
+	}
 }
 
 stock fm_set_user_money(index, addmoney, update = 1)
