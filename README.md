@@ -96,6 +96,7 @@ Upstream components listed above retain their own licenses. **Game assets** (map
   - [Zombie night vision](#zombie-night-vision)
   - [Map brightness and flashlights (Biohazard)](#map-brightness-and-flashlights-biohazard)
   - [Survivor ammo (`bh_ammo`)](#survivor-ammo-bh_ammo)
+  - [Zombie knockback](#zombie-knockback)
   - [Frost / napalm grenades (Biohazard ports)](#frost--napalm-grenades-zp50-derived-biohazard-ports)
   - [FastDL (faster first-join downloads)](#fastdl-faster-first-join-downloads)
 - [Biohazard / old-school infection (optional profile)](#biohazard--old-school-infection-optional-profile)
@@ -367,6 +368,61 @@ Requirements: **`flashlight_custom 1`**, **`customflashlight.amxx`** loaded. The
 ### Survivor ammo (`bh_ammo`)
 
 **`addons/amxmodx/configs/bh_cvars.cfg`** sets **`bh_ammo`** for **humans only** — Biohazard skips this logic while **`g_zombie`** is true. **`1`** tops up reserve when it hits empty; **`2`** keeps the current magazine topped up whenever **`CurWeapon`** updates and refills reserve, which behaves like infinite ammo during combat. Change **`biohazard.sma`** (**`bh_ammo`** handler in **`event_curweapon`**) and rebuild **`biohazard.amxx`** (Biohazard **§2**) if you need further tweaks beyond the **`bh_cvars.cfg`** knobs.
+
+### Zombie knockback
+
+When humans shoot zombies with bullets, Biohazard applies horizontal velocity in **`bacon_traceattack_player`** ([`biohazard.sma`](image/zombiemod/extra-assets/addons/amxmodx/scripting/biohazard.sma)). Knockback is **not** per-weapon in a config file — weapons are grouped by **ammo caliber** in **`g_weapon_knockback[]`**, and each group has a power in **`g_knockbackpower[]`** in [`biohazard.cfg`](image/zombiemod/extra-assets/addons/amxmodx/scripting/biohazard.cfg). Each zombie class also has **`KNOCKBACK`** in [`bh_zombieclass.ini`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_zombieclass.ini).
+
+**Formula** (vertical velocity is preserved):
+
+```
+push = hit_direction × damage × class_KNOCKBACK × ammo_type_power × bh_knockback_multi
+```
+
+**Server cvars** ([`bh_cvars.cfg`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg)):
+
+| Cvar | Default | Purpose |
+|------|---------|---------|
+| **`bh_knockback`** | `1` | Master on/off for bullet knockback. |
+| **`bh_knockback_duck`** | `1` | When `1`, no knockback if the zombie is ducked on the ground. |
+| **`bh_knockback_dist`** | `280.0` | Max attacker–victim distance (units) for knockback to apply. |
+| **`bh_knockback_multi`** | `1.0` | Global strength multiplier (`2.0` = double push; `0.5` = half). |
+
+**Ammo-type powers** (`biohazard.cfg` — edit and rebuild **`biohazard.amxx`** to change):
+
+| Ammo bucket | Power | Typical weapons |
+|-------------|-------|-----------------|
+| `.357 SIG` | 3.0 | P228 |
+| `7.62 NATO` | 4.0 | Scout, AK47, G3SG1 |
+| Buckshot | 9.5 | XM1014, M3 |
+| `.45 ACP` | 3.0 | MAC10, UMP45, USP |
+| `5.56 NATO` | 4.5 | AUG, SG550, Galil, Famas, M4A1, SG552 |
+| `9mm` | 3.0 | Elite, Glock, MP5, TMP |
+| `5.7mm` | 3.5 | Five-Seven, P90 |
+| `.338 Magnum` | 12.0 | AWP |
+| `5.56 NATO box` | 4.0 | M249 |
+| `.50 AE` | 3.8 | Deagle |
+
+**Primary / secondary menu weapons** map to those buckets as follows:
+
+| Weapon | Bucket | Power |
+|--------|--------|-------|
+| M4A1, AUG, SG552, Galil, Famas, SG550 | `5.56 NATO` | 4.5 |
+| AK47, G3SG1 | `7.62 NATO` | 4.0 |
+| XM1014, M3 | Buckshot | 9.5 |
+| MP5 Navy, Elite | `9mm` | 3.0 |
+| P90 | `5.7mm` | 3.5 |
+| M249 | `5.56 NATO box` | 4.0 |
+| Deagle | `.50 AE` | 3.8 |
+| USP | `.45 ACP` | 3.0 |
+
+Knife, grenades, and C4 use **`-1`** in **`g_weapon_knockback[]`** — no knockback. Two rifles in the same bucket with the same damage produce the same push; AWP and shotguns feel stronger because their buckets have higher powers.
+
+**Class examples** (`bh_zombieclass.ini`): Slum **`1.0`**, Stalker **`2.0`**, Hulk **`0.25`**, Leaper **`0.08`**, Smoker **`1.25`**.
+
+**Not zombie knockback:** **`bh_pushpwr_weapon`** / **`bh_pushpwr_zombie`** move **`func_pushable`** objects when **`bh_shootobjects 1`** — unrelated to pinning zombies with gunfire.
+
+**RCON / live tweak:** `rcon bh_knockback_multi 1.5` scales all knockback without rebuilding. **`bh_knockback_multi`** is in **`bh_cvars.cfg`**, so it resets on map change unless you edit the cfg and rebuild.
 
 ### Frost / napalm grenades (zp50-derived, Biohazard ports)
 

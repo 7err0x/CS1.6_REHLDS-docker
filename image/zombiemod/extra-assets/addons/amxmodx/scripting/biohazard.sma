@@ -298,7 +298,7 @@ new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cva
     cvar_respawnaszombie, cvar_dead_zombie_respawn, cvar_dead_zombie_respawn_delay,
     cvar_punishsuicide, cvar_infectmoney, cvar_showtruehealth,
     cvar_obeyarmor, cvar_impactexplode, cvar_caphealthdisplay, cvar_zombie_hpmulti,
-    cvar_randomclass, cvar_zombiemulti, cvar_knockback, cvar_knockback_dist, cvar_ammo,
+    cvar_randomclass, cvar_zombiemulti, cvar_knockback, cvar_knockback_dist, cvar_knockback_multi, cvar_ammo,
     cvar_knockback_duck, cvar_killreward, cvar_painshockfree, cvar_zombie_class,
     cvar_shootobjects, cvar_pushpwr_weapon, cvar_pushpwr_zombie,
     cvar_nvg_bubble, cvar_nvg_rgb, cvar_nvg_radius, cvar_nvg_decay, cvar_nvg_life,
@@ -545,6 +545,7 @@ public plugin_precache()
 	cvar_knockback = register_cvar("bh_knockback", "1")
 	cvar_knockback_duck = register_cvar("bh_knockback_duck", "1")
 	cvar_knockback_dist = register_cvar("bh_knockback_dist", "280.0")
+	cvar_knockback_multi = register_cvar("bh_knockback_multi", "1.0")
 	cvar_obeyarmor = register_cvar("bh_obeyarmor", "0")
 	cvar_infectmoney = register_cvar("bh_infectionmoney", "0")
 	cvar_caphealthdisplay = register_cvar("bh_caphealthdisplay", "1")
@@ -1690,6 +1691,7 @@ public bacon_traceattack_player(victim, attacker, Float:damage, Float:direction[
 			xs_vec_mul_scalar(direction, damage, direction)
 			xs_vec_mul_scalar(direction, g_class_data[g_player_class[victim]][DATA_KNOCKBACK], direction)
 			xs_vec_mul_scalar(direction, g_knockbackpower[kbpower], direction)
+			xs_vec_mul_scalar(direction, get_pcvar_float(cvar_knockback_multi), direction)
 			
 			xs_vec_add(direction, velocity, velocity)
 			velocity[2] = tempvec
