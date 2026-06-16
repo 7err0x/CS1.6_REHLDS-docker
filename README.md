@@ -530,6 +530,33 @@ EBOT_BAKE_MAP_TIMEOUT_SECS=1800 podman compose -f docker-compose.yml -f docker-c
 
 Commit new files under **`data/cs16-ebot-waypoints/`** (including **`matrix/`**).
 
+**Git LFS (required after clone or pull).** Large waypoint files (`.ewp` and `matrix/*.emt`, some over GitHub’s 50 MB limit) are stored with [Git LFS](https://git-lfs.com/) — see [`.gitattributes`](.gitattributes). A normal `git clone` / `git pull` only fetches small **pointer** files until LFS objects are downloaded. Without the real files, E-BOT logs **`Error writing '<map>' waypoint file: file cannot be created!`** on startup (production mounts waypoints read-only; it cannot regenerate them).
+
+Install Git LFS once per machine, then pull LFS objects whenever you clone or update the repo:
+
+```bash
+# RHEL / Alma / Rocky
+sudo dnf install git-lfs
+
+# Debian / Ubuntu
+sudo apt install git-lfs
+
+git lfs install
+git lfs pull
+```
+
+Verify a waypoint is real (not a pointer):
+
+```bash
+head -1 data/cs16-ebot-waypoints/cs_estate.ewp
+ls -lh data/cs16-ebot-waypoints/matrix/zm_dust.emt
+```
+
+- **Good:** `cs_estate.ewp` is several KB; large `.emt` files are tens or hundreds of MB.
+- **Bad:** first line is `version https://git-lfs.github.com/spec/v1` — run **`git lfs pull`** again.
+
+Contributors adding or refreshing baked files: ensure LFS is installed before commit (`git lfs track` is already set in `.gitattributes`). If history already contains large blobs, migrate with `git lfs migrate import --include="data/cs16-ebot-waypoints/**/*.emt,data/cs16-ebot-waypoints/*.ewp"` before pushing to GitHub.
+
 #### `ebot-biohazard.cfg` settings
 
 | Cvar | Default (repo) | What it does |
