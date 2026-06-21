@@ -1739,6 +1739,9 @@ public bacon_takedamage_player(victim, inflictor, attacker, Float:damage, damage
 	}
 	else
 	{
+		if(!g_zombie[victim] && bh_allow_zombie_entity_damage(inflictor, attacker, damagetype))
+			return HAM_IGNORED
+
 		if(get_user_weapon(attacker) != CSW_KNIFE)
 			return HAM_SUPERCEDE
 
@@ -3250,6 +3253,23 @@ stock str_count(str[], searchchar)
 		count++
 
 	return count
+}
+
+stock bool:bh_allow_zombie_entity_damage(inflictor, attacker, damagetype)
+{
+	if(pev_valid(inflictor) && inflictor != attacker)
+	{
+		static classname[32]
+		pev(inflictor, pev_classname, classname, charsmax(classname))
+
+		if(equal(classname, "lasermine"))
+			return true
+	}
+
+	if(damagetype & (DMG_ENERGYBEAM|DMG_BLAST))
+		return true
+
+	return false
 }
 
 stock bh_apply_zombie_speed(id)
