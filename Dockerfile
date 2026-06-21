@@ -219,6 +219,7 @@ RUN if [[ "${CS16_PLUGINS_INI}" == "plugins-biohazard.ini" ]]; then \
     fi
 
 COPY cstrike/amxmodx/users.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/users.ini
+COPY image/zombiemod/amxx.cfg /opt/steam/hlds/cstrike/addons/amxmodx/configs/amxx.cfg
 COPY cstrike/server.cfg /opt/steam/hlds/cstrike/server.cfg
 COPY cstrike/config/ /opt/steam/hlds/cstrike/config/
 COPY cstrike/reunion.cfg /opt/steam/hlds/cstrike/reunion.cfg

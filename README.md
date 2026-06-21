@@ -825,7 +825,17 @@ Use **`rcon mp_timelimit 30`** (or any **> 0** value) so the map does not run fo
 
 Two stock plugins handle votes; both are in the default **`plugins.ini`**.
 
-1. **End-of-map vote** — **`mapchooser.amxx`**: starts automatically when **`mp_timelimit` > 0** and map time left falls into AMXX’s **short end window** (on the order of the **last ~2 minutes**). Candidate maps come from **`addons/amxmodx/configs/maps.ini`** if that file exists, otherwise from **`mapcyclefile`** (this project bakes **`mapcycle.txt`**).
+1. **End-of-map vote** — **`cs16_mapchooser.amxx`** (replaces stock **`mapchooser.amxx`**): polls every **15 seconds** and opens the vote once end-of-map conditions are met (see below). Candidate maps come from **`addons/amxmodx/configs/maps.ini`** if that file exists (Biohazard bakes **`maps-biohazard.ini`** → **`maps.ini`**), otherwise from **`mapcyclefile`**. Each vote shows **5 random maps** from that pool (not the full list), plus **Extend current map** and **None** when timelimit mode allows extension. The menu stays open **`amx_vote_time`** seconds (baked **`45`** in [`image/zombiemod/amxx.cfg`](image/zombiemod/amxx.cfg); **`rcon amx_vote_time 60`** to change live).
+
+   **When the vote starts** (first matching rule):
+
+   | Server mode | Condition |
+   |-------------|-----------|
+   | **`mp_timelimit` > 0** and **`mp_winlimit` / `mp_maxrounds` = 0** (Biohazard default) | Map time left is **1–129 seconds** (~last **2 minutes 9 seconds**). With **`mp_timelimit 40`**, the vote opens around **37:30** elapsed. |
+   | **`mp_winlimit` > 0** | Either team reaches **`mp_winlimit − 2** wins. |
+   | **`mp_maxrounds` > 0** | Total rounds played reaches **`mp_maxrounds − 2`**. |
+
+   Requires **`mp_timelimit` > 0** (or win/round limits) so the map can end; **`nextmap.amxx`** applies **`amx_nextmap`** at map end.
 
 2. **Vote on demand** — **`adminvote.amxx`**: console command **`amx_votemap`** (up to **four** map names). Requires an admin with the **`j`** (**ADMIN_VOTE**) flag in **`users.ini`** (a long **`abcdefghijklmnopqrstu`** access string includes it). Examples:
 

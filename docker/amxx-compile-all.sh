@@ -23,6 +23,7 @@ PACK=(
 	zp50_ambience_sounds.sma
 	zp50_grenade_fire.sma
 	zp50_grenade_frost.sma
+	cs16_mapchooser.sma
 )
 
 for sma in "${PACK[@]}"; do
