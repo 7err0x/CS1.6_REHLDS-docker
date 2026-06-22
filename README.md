@@ -655,7 +655,7 @@ Commenting out the `exec addons/ebot/ebot-biohazard.cfg` line only skips your ov
 #### Interaction with Biohazard / lasermines
 
 - **Grenades:** Human E-BOTs can throw (see **`ebot_use_grenade_percent`**). Biohazard gives bots HE when they are human; infected bots do not grenade.
-- **Lasermines:** E-BOTs **do not place** lasermines (no `+setlaser` AI; lasermine plugin skips bots on round start). With **`ebot_kill_breakables 1`**, they **can destroy** enemy mines as breakables if HP ≤ **`ebot_breakable_health_limit`**.
+- **Lasermines:** E-BOTs **do not place** lasermines (no `+setlaser` AI; lasermine plugin skips bots on round start). With **`ebot_kill_breakables 1`**, they **can destroy** enemy mines as breakables if HP ≤ **`ebot_breakable_health_limit`**. When a human is infected, their deployed mines are **removed and refunded** to inventory (`event_infect` in lasermine).
 
 Full cvar list: [`cstrike/ebot/README.md`](cstrike/ebot/README.md). Upstream: [CS-EBOT](https://github.com/EfeDursun125/CS-EBOT) · [E-BOT blog](https://ebots-for-cs.blogspot.com/).
 
