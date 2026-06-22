@@ -74,6 +74,18 @@ native get_class_id(classname[])
 #define DATA_HITREGENDLY 9  //Pain regeneration delay value
 #define DATA_KNOCKBACK   10 //Knockback multiplier
 
+// Set by zp50_grenade_frost.amxx while a zombie is flash-frozen.
+#define BH_PEV_FROST     pev_iuser2
+#define BH_FROST_TAG     7331
+
+stock bool:bh_player_is_frost_frozen(id)
+{
+	if(!is_user_connected(id))
+		return false
+
+	return pev(id, BH_PEV_FROST) == BH_FROST_TAG
+}
+
 /* Return/set value of zombie class data */
 native Float:get_class_data(classid, dataid)
 native set_class_data(classid, dataid, Float:value)

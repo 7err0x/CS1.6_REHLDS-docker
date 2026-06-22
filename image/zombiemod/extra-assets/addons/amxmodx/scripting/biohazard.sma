@@ -93,6 +93,18 @@
 #define DMG_HEGRENADE (1<<24)
 
 #define MODEL_CLASSNAME "player_model"
+
+#define BH_PEV_FROST pev_iuser2
+#define BH_FROST_TAG 7331
+
+stock bool:bh_player_is_frost_frozen(id)
+{
+	if(!is_user_connected(id))
+		return false
+
+	return pev(id, BH_PEV_FROST) == BH_FROST_TAG
+}
+
 #define IMPULSE_FLASHLIGHT 100
 
 #define write_coord_f(%1) engfunc(EngFunc_WriteCoord, %1)
@@ -1351,6 +1363,9 @@ public fwd_player_prethink(id)
 	if(!is_user_alive(id) || !g_zombie[id])
 		return FMRES_IGNORED
 
+	if(bh_player_is_frost_frozen(id))
+		return FMRES_IGNORED
+
 	bh_apply_zombie_speed(id)
 	
 	static flags
@@ -1400,6 +1415,12 @@ public fwd_player_prethink_post(id)
 {
 	if(!g_brestorevel)
 		return FMRES_IGNORED
+
+	if(bh_player_is_frost_frozen(id))
+	{
+		g_brestorevel = false
+		return FMRES_IGNORED
+	}
 
 	g_brestorevel = false
 		

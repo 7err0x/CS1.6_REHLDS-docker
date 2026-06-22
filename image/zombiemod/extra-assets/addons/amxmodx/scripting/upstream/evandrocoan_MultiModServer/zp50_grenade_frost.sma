@@ -111,7 +111,7 @@ public plugin_init()
 	g_MsgDamage = get_user_msgid("Damage")
 	g_MsgScreenFade = get_user_msgid("ScreenFade")
 	
-	cvar_grenade_frost_duration = register_cvar("zp_grenade_frost_duration", "3")
+	cvar_grenade_frost_duration = register_cvar("zp_grenade_frost_duration", "4")
 	cvar_grenade_frost_hudicon = register_cvar("zp_grenade_frost_hudicon", "1")
 	
 	g_Forwards[FW_USER_FREEZE_PRE] = CreateMultiForward("zp_fw_grenade_frost_pre", ET_CONTINUE, FP_CELL)

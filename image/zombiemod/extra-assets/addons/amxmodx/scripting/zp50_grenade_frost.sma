@@ -1,23 +1,16 @@
 /*
  * Biohazard port of zp50_grenade_frost — no zp50_core required.
  *
- * GPL — original Zombie Plague 5.xzp50 grenade frost. Upstream verbatim copy:
- *   scripting/upstream/evandrocoan_MultiModServer/zp50_grenade_frost.sma
- *
- * Human flashbang: blue glow + trail → freeze zombies in radius for zp_grenade_frost_duration.
+ * Human flashbang: blue trail → freeze zombies in radius for zp_grenade_frost_duration.
  */
 #include <amxmodx>
 #include <engine>
 #include <fakemeta>
 #include <hamsandwich>
-#tryinclude <biohazard>
-
-#if !defined _biohazard_included
-#error Add addons/amxmodx/scripting/include/biohazard.inc next to this file when compiling.
-#endif
+#include <biohazard>
 
 #define PLUGIN_NAME "[BH] zp50-derived Grenade: Frost"
-#define PLUGIN_VERS "1.02"
+#define PLUGIN_VERS "1.06"
 #define PLUGIN_AUTH "ZP Dev Team / BH port"
 
 new g_mp
@@ -30,15 +23,13 @@ new g_mp
 
 #define NADE_RADIUS 240.0
 
-#define PEV_NADE_TYPE pev_flTimeStepSound
+#define PEV_NADE_TYPE pev_iuser3
 #define NADE_FRZ      3333
 
 #define SCR_FADE_SEC  (1<<12)
 #define GLASS_BF      0x01
 #define FF_IN         0x0000
 #define FF_STAYOUT    0x0004
-
-new Ham:Ham_Player_ResetMaxSpeed = Ham_Item_PreFrame
 
 new const SND_EXP[] = "warcraft3/frostnova.wav"
 new const SND_HIT[] = "warcraft3/impalehit.wav"
@@ -48,28 +39,52 @@ new const MODEL_TRAIL[] = "sprites/laserbeam.spr"
 new const MODEL_RING[] = "sprites/shockwave.spr"
 new const MODEL_GLASS[] = "models/glassgibs.mdl"
 
-new g_masks
 new Float:g_svGrav[33]
-
 new g_SvFx[33], Float:g_SvRgb[33][3], g_SvRm[33], Float:g_SvAmt[33]
 
 new g_msgdmg, g_msgsf
-
 new g_idTrail, g_idRing, g_idGlass
 
 new g_cvDur, g_cvHud
 
-stock HasFrost(id)
-	return (g_masks & (1 << (id & 31))) ? 1 : 0
-
-stock SetFrostMask(id)
+stock bool:HasFrost(id)
 {
-	g_masks |= (1 << (id & 31))
+	return bh_player_is_frost_frozen(id)
 }
 
-stock ClrFrostMask(id)
+stock SetFrostMark(id)
 {
-	g_masks &= ~(1 << (id & 31))
+	set_pev(id, BH_PEV_FROST, BH_FROST_TAG)
+}
+
+stock ClrFrostMark(id)
+{
+	set_pev(id, BH_PEV_FROST, 0)
+}
+
+stock bool:bh_is_flashbang_model(const model[])
+{
+	return (containi(model, "flashbang") != -1)
+}
+
+stock bh_frost_set_maxspeed(id, Float:speed)
+{
+	if(!is_user_connected(id))
+		return
+
+	engfunc(EngFunc_SetClientMaxspeed, id, speed)
+	set_pev(id, pev_maxspeed, speed)
+}
+
+stock bh_frost_kill_beam(ent)
+{
+	if(!pev_valid(ent))
+		return
+
+	message_begin(MSG_BROADCAST, SVC_TEMPENTITY)
+	write_byte(TE_KILLBEAM)
+	write_short(ent)
+	message_end()
 }
 
 public plugin_precache()
@@ -87,7 +102,7 @@ public plugin_init()
 {
 	register_plugin(PLUGIN_NAME, PLUGIN_VERS, PLUGIN_AUTH)
 
-	if (!is_biomod_active())
+	if(!is_biomod_active())
 	{
 		pause("ad")
 		return
@@ -95,7 +110,6 @@ public plugin_init()
 
 	g_mp = get_maxplayers()
 
-	RegisterHam(Ham_Player_ResetMaxSpeed, "player", "H_MaxspeedPost", 1)
 	RegisterHam(Ham_TakeDamage, "player", "H_TakeDamage")
 	RegisterHam(Ham_TraceAttack, "player", "H_TraceAttack")
 	RegisterHam(Ham_Killed, "player", "H_Killed")
@@ -109,7 +123,7 @@ public plugin_init()
 	g_msgdmg = get_user_msgid("Damage")
 	g_msgsf = get_user_msgid("ScreenFade")
 
-	g_cvDur = register_cvar("zp_grenade_frost_duration", "3.0")
+	g_cvDur = register_cvar("zp_grenade_frost_duration", "4.0")
 	g_cvHud = register_cvar("zp_grenade_frost_hudicon", "1")
 }
 
@@ -120,31 +134,24 @@ public EvtNewRound()
 {
 	static id
 
-	for (id = 1; id <= g_mp; id++)
+	for(id = 1; id <= g_mp; id++)
 	{
-		if (!is_user_connected(id))
+		if(!is_user_connected(id))
 			continue
 
 		remove_task(id + TASK_FRZ_RM)
 		remove_task(id + TASK_CURE)
 
-		if (HasFrost(id))
+		if(HasFrost(id))
 			BHUnfreeze(id, false)
-
-		remove_task(id + TASK_FRZ_RM)
-		remove_task(id + TASK_CURE)
 	}
-
-	g_masks = 0
 }
 
-public client_disconnect(id)
+public client_disconnected(id)
 {
 	remove_task(id + TASK_FRZ_RM)
 	remove_task(id + TASK_CURE)
-
-	if (HasFrost(id))
-		ClrFrostMask(id)
+	ClrFrostMark(id)
 }
 
 public TaskUnfreeze(packed)
@@ -157,16 +164,16 @@ public CurePoll(packed)
 {
 	new id = packed - TASK_CURE
 
-	if (!ValidPid(id) || !is_user_alive(id))
+	if(!ValidPid(id) || !is_user_alive(id))
 		return
 
-	if (!HasFrost(id))
+	if(!HasFrost(id))
 	{
 		remove_task(id + TASK_CURE)
 		return
 	}
 
-	if (!is_user_zombie(id))
+	if(!is_user_zombie(id))
 	{
 		remove_task(id + TASK_CURE)
 		BHUnfreeze(id, true)
@@ -177,35 +184,35 @@ public BHUnfreeze(id, effects)
 {
 	remove_task(id + TASK_FRZ_RM)
 
-	if (!HasFrost(id))
+	if(!HasFrost(id))
 		return
 
 	remove_task(id + TASK_CURE)
-	ClrFrostMask(id)
+	ClrFrostMark(id)
 
-	if (is_user_alive(id))
+	if(is_user_alive(id))
 	{
 		set_pev(id, pev_gravity, g_svGrav[id])
-
 		set_pev(id, pev_renderfx, g_SvFx[id])
 		set_pev(id, pev_rendercolor, g_SvRgb[id])
 		set_pev(id, pev_rendermode, g_SvRm[id])
 		set_pev(id, pev_renderamt, g_SvAmt[id])
 
-		ExecuteHamB(Ham_Player_ResetMaxSpeed, id)
-
-		message_begin(MSG_ONE, g_msgsf, _, id)
-		write_short(SCR_FADE_SEC)
-		write_short(0)
-		write_short(FF_IN)
-		write_byte(0)
-		write_byte(50)
-		write_byte(200)
-		write_byte(100)
-		message_end()
+		if(g_msgsf)
+		{
+			message_begin(MSG_ONE, g_msgsf, _, id)
+			write_short(SCR_FADE_SEC)
+			write_short(0)
+			write_short(FF_IN)
+			write_byte(0)
+			write_byte(50)
+			write_byte(200)
+			write_byte(100)
+			message_end()
+		}
 	}
 
-	if (!effects || !is_user_alive(id))
+	if(!effects || !is_user_alive(id))
 		return
 
 	emit_sound(id, CHAN_BODY, SND_BRK, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
@@ -234,12 +241,12 @@ public BHUnfreeze(id, effects)
 
 FreezeStart(id)
 {
-	if (HasFrost(id))
+	if(!is_user_alive(id) || !is_user_zombie(id) || HasFrost(id))
 		return
 
-	SetFrostMask(id)
+	SetFrostMark(id)
 
-	if (get_pcvar_num(g_cvHud))
+	if(get_pcvar_num(g_cvHud) && g_msgdmg)
 	{
 		message_begin(MSG_ONE_UNRELIABLE, g_msgdmg, _, id)
 		write_byte(0)
@@ -253,15 +260,18 @@ FreezeStart(id)
 
 	emit_sound(id, CHAN_BODY, SND_HIT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 
-	message_begin(MSG_ONE, g_msgsf, _, id)
-	write_short(0)
-	write_short(0)
-	write_short(FF_STAYOUT)
-	write_byte(0)
-	write_byte(50)
-	write_byte(200)
-	write_byte(100)
-	message_end()
+	if(g_msgsf)
+	{
+		message_begin(MSG_ONE, g_msgsf, _, id)
+		write_short(0)
+		write_short(0)
+		write_short(FF_STAYOUT)
+		write_byte(0)
+		write_byte(50)
+		write_byte(200)
+		write_byte(100)
+		message_end()
+	}
 
 	g_SvFx[id] = pev(id, pev_renderfx)
 	pev(id, pev_rendercolor, g_SvRgb[id])
@@ -275,18 +285,10 @@ FreezeStart(id)
 
 	shlGlow(id)
 
-	if (pev(id, pev_flags) & FL_ONGROUND)
-	{
-		new Float:gH
-		gH = GRAVITY_HIGH_FL
-		set_pev(id, pev_gravity, gH)
-	}
+	if(pev(id, pev_flags) & FL_ONGROUND)
+		set_pev(id, pev_gravity, GRAVITY_HIGH_FL)
 	else
-	{
-		new Float:gN
-		gN = GRAVITY_NONE_FL
-		set_pev(id, pev_gravity, gN)
-	}
+		set_pev(id, pev_gravity, GRAVITY_NONE_FL)
 
 	remove_task(id + TASK_FRZ_RM)
 	remove_task(id + TASK_CURE)
@@ -294,15 +296,15 @@ FreezeStart(id)
 	set_task(get_pcvar_float(g_cvDur), "TaskUnfreeze", id + TASK_FRZ_RM)
 	set_task(0.25, "CurePoll", id + TASK_CURE, _, _, "b")
 
-	ExecuteHamB(Ham_Player_ResetMaxSpeed, id)
+	bh_frost_set_maxspeed(id, 1.0)
 }
 
 stock shlGlow(ent)
 {
-	new Float:rgb[3]
+	static Float:rgb[3]
 	rgb[0] = 0.0
-	rgb[1] = float(100)
-	rgb[2] = float(200)
+	rgb[1] = 100.0
+	rgb[2] = 200.0
 
 	set_pev(ent, pev_renderfx, kRenderFxGlowShell)
 	set_pev(ent, pev_rendercolor, rgb)
@@ -310,23 +312,15 @@ stock shlGlow(ent)
 	set_pev(ent, pev_renderamt, 25.0)
 }
 
-public H_MaxspeedPost(id)
-{
-	if (!is_user_alive(id) || !HasFrost(id))
-		return
-
-	set_pev(id, pev_maxspeed, 1.0)
-}
-
 public H_TakeDamage(victim, inflictor, attacker, Float:damage, damage_type)
 {
-	if (damage <= 0.0)
+	if(damage <= 0.0)
 		return HAM_IGNORED
 
-	if (!is_user_connected(attacker) || !is_user_alive(attacker))
+	if(!is_user_connected(attacker) || !is_user_alive(attacker))
 		return HAM_IGNORED
 
-	if (victim != attacker && HasFrost(victim))
+	if(victim != attacker && HasFrost(victim))
 		return HAM_SUPERCEDE
 
 	return HAM_IGNORED
@@ -334,7 +328,7 @@ public H_TakeDamage(victim, inflictor, attacker, Float:damage, damage_type)
 
 public H_TraceAttack(victim, attacker, Float:flDamage, Float:vecDir[3], ptr, dmg_bits)
 {
-	if (is_user_alive(attacker) && victim != attacker && HasFrost(victim))
+	if(is_user_alive(attacker) && victim != attacker && HasFrost(victim))
 		return HAM_SUPERCEDE
 
 	return HAM_IGNORED
@@ -344,14 +338,16 @@ public H_Killed(id)
 {
 	remove_task(id + TASK_CURE)
 
-	if (HasFrost(id))
+	if(HasFrost(id))
 		BHUnfreeze(id, false)
 }
 
 public H_PreThink(id)
 {
-	if (!is_user_alive(id) || !HasFrost(id))
+	if(!is_user_alive(id) || !HasFrost(id))
 		return
+
+	bh_frost_set_maxspeed(id, 1.0)
 
 	static Float:zero[3]
 	zero[0] = 0.0
@@ -362,22 +358,16 @@ public H_PreThink(id)
 
 public H_SetModel(ent, const model[])
 {
-	if (!pev_valid(ent) || strlen(model) < 11)
-		return FMRES_IGNORED
-
-	if (model[7] != 'w' || model[8] != '_')
+	if(!pev_valid(ent) || !bh_is_flashbang_model(model))
 		return FMRES_IGNORED
 
 	static Float:dmgTime
 	pev(ent, pev_dmgtime, dmgTime)
-	if (dmgTime == 0.0)
+	if(dmgTime == 0.0)
 		return FMRES_IGNORED
 
 	new oid = pev(ent, pev_owner)
-	if (oid < 1 || oid > g_mp || !is_user_alive(oid) || is_user_zombie(oid))
-		return FMRES_IGNORED
-
-	if (!(model[9] == 'f' && model[10] == 'l'))
+	if(oid < 1 || oid > g_mp || !is_user_alive(oid) || is_user_zombie(oid))
 		return FMRES_IGNORED
 
 	shlGlow(ent)
@@ -401,58 +391,86 @@ public H_SetModel(ent, const model[])
 
 public H_GrenThink(ent)
 {
-	if (!pev_valid(ent))
+	if(!pev_valid(ent))
 		return HAM_IGNORED
 
 	static Float:t
 	pev(ent, pev_dmgtime, t)
 
-	if (t > get_gametime())
+	if(t > get_gametime())
 		return HAM_IGNORED
 
-	if (pev(ent, PEV_NADE_TYPE) != NADE_FRZ)
+	if(!bh_ent_is_frost_nade(ent))
 		return HAM_IGNORED
 
 	static Float:o[3]
 	pev(ent, pev_origin, o)
 
-	blastCylinder(o)
-
+	bh_frost_kill_beam(ent)
+	frost_blast(o)
 	emit_sound(ent, CHAN_WEAPON, SND_EXP, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
-
-	new vic = -1
-
-	while ((vic = engfunc(EngFunc_FindEntityInSphere, vic, o, NADE_RADIUS)))
-	{
-		if (vic < 1 || vic > g_mp)
-			continue
-
-		if (is_user_alive(vic) && is_user_zombie(vic))
-			FreezeStart(vic)
-	}
+	frost_freeze_in_radius(o)
 
 	engfunc(EngFunc_RemoveEntity, ent)
 
 	return HAM_SUPERCEDE
 }
 
-stock blastCylinder(const Float:o[3])
+stock frost_freeze_in_radius(const Float:origin[3])
 {
-	beamRing(o, 385.0)
-	beamRing(o, 470.0)
-	beamRing(o, 555.0)
+	static Float:player_origin[3]
+	static id
+
+	for(id = 1; id <= g_mp; id++)
+	{
+		if(!is_user_alive(id) || !is_user_zombie(id))
+			continue
+
+		pev(id, pev_origin, player_origin)
+
+		if(get_distance_f(origin, player_origin) > NADE_RADIUS)
+			continue
+
+		FreezeStart(id)
+	}
 }
 
-stock beamRing(const Float:o[3], Float:zRaise)
+stock bool:bh_ent_is_frost_nade(ent)
 {
-	engfunc(EngFunc_MessageBegin, MSG_PVS, SVC_TEMPENTITY, o, 0)
+	if(pev(ent, PEV_NADE_TYPE) == NADE_FRZ)
+		return true
+
+	static model[64]
+	pev(ent, pev_model, model, charsmax(model))
+
+	if(!bh_is_flashbang_model(model))
+		return false
+
+	new oid = pev(ent, pev_owner)
+
+	if(oid < 1 || oid > g_mp || !is_user_connected(oid) || is_user_zombie(oid))
+		return false
+
+	return true
+}
+
+stock frost_blast(const Float:origin[3])
+{
+	frost_blast_ring(origin, 385.0)
+	frost_blast_ring(origin, 470.0)
+	frost_blast_ring(origin, 555.0)
+}
+
+stock frost_blast_ring(const Float:origin[3], Float:zRaise)
+{
+	engfunc(EngFunc_MessageBegin, MSG_PVS, SVC_TEMPENTITY, origin, 0)
 	write_byte(TE_BEAMCYLINDER)
-	engfunc(EngFunc_WriteCoord, o[0])
-	engfunc(EngFunc_WriteCoord, o[1])
-	engfunc(EngFunc_WriteCoord, o[2])
-	engfunc(EngFunc_WriteCoord, o[0])
-	engfunc(EngFunc_WriteCoord, o[1])
-	engfunc(EngFunc_WriteCoord, o[2] + zRaise)
+	engfunc(EngFunc_WriteCoord, origin[0])
+	engfunc(EngFunc_WriteCoord, origin[1])
+	engfunc(EngFunc_WriteCoord, origin[2])
+	engfunc(EngFunc_WriteCoord, origin[0])
+	engfunc(EngFunc_WriteCoord, origin[1])
+	engfunc(EngFunc_WriteCoord, origin[2] + zRaise)
 	write_short(g_idRing)
 	write_byte(0)
 	write_byte(0)
