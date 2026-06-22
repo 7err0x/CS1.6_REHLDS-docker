@@ -557,6 +557,7 @@ The **`cs16-biohazard`** image ships **[E-BOT 1.10](https://github.com/EfeDursun
 
 | File | Role |
 |------|------|
+| [`cstrike/ebot/README.md`](cstrike/ebot/README.md) | **Full E-BOT cvar reference** + repo override table |
 | [`cstrike/ebot/ebot-biohazard.cfg`](cstrike/ebot/ebot-biohazard.cfg) | Server overrides (`exec` from [`cstrike/config/server-biohazard.cfg`](cstrike/config/server-biohazard.cfg)) |
 | [`cstrike/ebot/names.cfg`](cstrike/ebot/names.cfg) | One bot name per line (random pick on spawn) |
 | `addons/ebot/ebot.cfg` (in image) | Upstream defaults from the E-BOT release; not committed — change via overrides above |
@@ -613,28 +614,9 @@ ls -lh data/cs16-ebot-waypoints/matrix/zm_dust.emt
 
 Contributors adding or refreshing baked files: ensure LFS is installed before commit (`git lfs track` is already set in `.gitattributes`). If history already contains large blobs, migrate with `git lfs migrate import --include="data/cs16-ebot-waypoints/**/*.emt,data/cs16-ebot-waypoints/*.ewp"` before pushing to GitHub.
 
-#### `ebot-biohazard.cfg` settings
+#### E-BOT cvars
 
-| Cvar | Default (repo) | What it does |
-|------|----------------|--------------|
-| `ebot_quota` | `8` | Number of E-BOT players. **`0`** = no bots (plugin still loads). |
-| `ebot_keep_slots` | `2` | Slots reserved for humans (`ebot_quota` + humans + `keep_slots` ≤ `maxplayers`). |
-| `ebot_zp_delay_custom` | `15.0` | Seconds after round start before bots attack; match **`bh_starttime`** in [`bh_cvars.cfg`](image/zombiemod/extra-assets/addons/amxmodx/configs/bh_cvars.cfg). E-BOT also reads **`bh_starttime`** automatically. |
-| `ebot_analyze_auto_start` | `1` | Auto-generate waypoints on unwaypointed maps (can be CPU-heavy). Pre-bake via **`ebot-waypoints-bake`** to avoid this on production. |
-| `ebot_name_tag` | `0` | `0` = plain names; `1` = `[E-BOT]` prefix; `2` = prefix + skill in name. |
-| `ebot_fake_ping` | `1` | Show plausible ping on scoreboard (`0` = zero ping). |
-| `ebot_use_flares` | `1` | Human bots use flares in dark areas (pairs with **customflashlight**). |
-| `ebot_zombie_count_as_path_cost` | `1` | Zombies add “cost” to nearby paths so humans route around hordes. |
-| `ebot_use_pathfinding_for_avoid` | `1` | Full A* flee logic for humans (`0` = simpler/cheaper avoid). |
-| `ebot_breakable_health_limit` | `5000.0` | Max breakable HP bots will melee (enemy **lasermines**, glass, etc.). |
-
-**Not in `ebot-biohazard.cfg` but useful** (set in that file or via RCON; defaults live in upstream **`ebot.cfg`**):
-
-| Cvar | Upstream default | What it does |
-|------|------------------|--------------|
-| `ebot_use_grenade_percent` | `60` | Chance human bots throw HE / flash / smoke when AI chooses to. Zombies do not throw. |
-| `ebot_stop_bots` | `0` | `1` = freeze all bot AI (temporary). |
-| `ebot_difficulty` | `4` | Bot skill `0`–`4` (`-1` = random per bot). |
+All **`ebot_*`** server variables (upstream defaults + this repo’s overrides) are documented in **[`cstrike/ebot/README.md`](cstrike/ebot/README.md)**. Production overrides live in [`ebot-biohazard.cfg`](cstrike/ebot/ebot-biohazard.cfg) (`ebot_difficulty 4`, `ebot_zombie_wall_hack 1`, `ebot_dark_mode 1`, `ebot_kill_breakables 1`, etc.).
 
 #### Bot names
 
@@ -673,9 +655,9 @@ Commenting out the `exec addons/ebot/ebot-biohazard.cfg` line only skips your ov
 #### Interaction with Biohazard / lasermines
 
 - **Grenades:** Human E-BOTs can throw (see **`ebot_use_grenade_percent`**). Biohazard gives bots HE when they are human; infected bots do not grenade.
-- **Lasermines:** E-BOTs **do not place** lasermines (no `+setlaser` AI; lasermine plugin skips bots on round start). They **can destroy** enemy mines as breakables if HP ≤ **`ebot_breakable_health_limit`**.
+- **Lasermines:** E-BOTs **do not place** lasermines (no `+setlaser` AI; lasermine plugin skips bots on round start). With **`ebot_kill_breakables 1`**, they **can destroy** enemy mines as breakables if HP ≤ **`ebot_breakable_health_limit`**.
 
-Upstream docs: [CS-EBOT](https://github.com/EfeDursun125/CS-EBOT) · [E-BOT blog](https://ebots-for-cs.blogspot.com/).
+Full cvar list: [`cstrike/ebot/README.md`](cstrike/ebot/README.md). Upstream: [CS-EBOT](https://github.com/EfeDursun125/CS-EBOT) · [E-BOT blog](https://ebots-for-cs.blogspot.com/).
 
 ### RCON: infect a player or end the round (Biohazard)
 
