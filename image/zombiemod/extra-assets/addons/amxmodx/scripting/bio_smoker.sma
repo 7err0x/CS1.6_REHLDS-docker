@@ -22,7 +22,7 @@
 #endif
 
 #define PLUGIN "[BH] Smoker tongue"
-#define VERSION "1.2"
+#define VERSION "1.3"
 #define AUTHOR "4eRT / BH port"
 
 #define CLASS_NAME "Smoker"
@@ -83,6 +83,7 @@ public plugin_init2()
 	register_forward(FM_PlayerPreThink, "fw_PlayerPreThink")
 	register_forward(FM_StartFrame, "fwd_startframe")
 	RegisterHam(Ham_TakeDamage, "player", "fw_TakeDamage", 1)
+	RegisterHam(Ham_Killed, "player", "fw_PlayerKilled")
 
 	set_task(1.0, "task_resolve_class", 0, _, _, "b")
 }
@@ -258,7 +259,9 @@ public smoker_reelin(parm[])
 	new id = parm[0]
 	new victim = parm[1]
 
-	if (!g_hooked[id] || !is_user_alive(victim) || is_user_zombie(victim))
+	if (!g_hooked[id] || g_hooked[id] != victim
+		|| !is_user_alive(id) || !is_smoker(id)
+		|| !is_user_alive(victim) || is_user_zombie(victim))
 	{
 		drag_end(id)
 		return
@@ -318,6 +321,32 @@ public drag_end(id)
 
 	if (is_user_alive(victim) && get_pcvar_num(cvar_freeze_victim))
 		set_pev(victim, pev_maxspeed, 250.0)
+
+	if (is_user_alive(victim))
+	{
+		new Float:zero[3]
+		zero[0] = zero[1] = zero[2] = 0.0
+		set_pev(victim, pev_velocity, zero)
+	}
+}
+
+public fw_PlayerKilled(victim, killer, shouldgib)
+{
+	if (!get_pcvar_num(cvar_enable))
+		return HAM_IGNORED
+
+	// Smoker died while tongue was out — stop reel/beam before TE_BEAMENTS targets a dead ent.
+	if (g_hooked[victim])
+		drag_end(victim)
+
+	// Hooked human died — release any smoker still pulling this slot.
+	for (new smoker = 1; smoker <= g_maxplayers; smoker++)
+	{
+		if (g_hooked[smoker] == victim)
+			drag_end(smoker)
+	}
+
+	return HAM_IGNORED
 }
 
 public fw_TakeDamage(victim, inflictor, attacker, Float:damage)
@@ -352,8 +381,11 @@ public fwd_startframe()
 
 		new target = g_hooked[id]
 
-		if (!is_user_connected(target))
+		if (!is_user_connected(target) || !is_user_alive(id) || !is_user_alive(target) || !is_smoker(id))
+		{
+			drag_end(id)
 			continue
+		}
 
 		new parm[2]
 		parm[0] = id
