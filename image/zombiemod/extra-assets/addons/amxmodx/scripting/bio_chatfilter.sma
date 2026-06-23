@@ -1,12 +1,12 @@
 /*
- * [BH] Chat profanity filter — mute + kick on blocked words (case-insensitive).
+ * [BH] Chat profanity filter — mute + temp ban on blocked words (case-insensitive).
  * Word list: addons/amxmodx/configs/bh_chatfilter_words.ini
  */
 #include <amxmodx>
 #include <amxmisc>
 
 #define PLUGIN "[BH] Chat filter"
-#define VERSION "1.0"
+#define VERSION "1.1"
 #define AUTHOR "cs16docker"
 
 #define MAX_WORDS 64
@@ -16,18 +16,19 @@ new g_words[MAX_WORDS][WORD_LEN + 1]
 new g_word_count
 new g_muted[33]
 
-new cvar_enable, cvar_kick, cvar_mute, cvar_admin_exempt
-new g_kick_reason[96]
+new cvar_enable, cvar_ban, cvar_ban_minutes, cvar_mute, cvar_admin_exempt
+new g_ban_reason[96]
 
 public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 
 	cvar_enable = register_cvar("bh_chatfilter_enable", "1")
-	cvar_kick = register_cvar("bh_chatfilter_kick", "1")
+	cvar_ban = register_cvar("bh_chatfilter_ban", "1")
+	cvar_ban_minutes = register_cvar("bh_chatfilter_ban_minutes", "1")
 	cvar_mute = register_cvar("bh_chatfilter_mute", "1")
 	cvar_admin_exempt = register_cvar("bh_chatfilter_admin_exempt", "1")
-	register_cvar("bh_chatfilter_kick_reason", "Kicked: inappropriate language")
+	register_cvar("bh_chatfilter_ban_reason", "Banned: inappropriate language")
 
 	register_clcmd("say", "cmd_say")
 	register_clcmd("say_team", "cmd_say_team")
@@ -35,7 +36,7 @@ public plugin_init()
 
 public plugin_cfg()
 {
-	get_cvar_string("bh_chatfilter_kick_reason", g_kick_reason, charsmax(g_kick_reason))
+	get_cvar_string("bh_chatfilter_ban_reason", g_ban_reason, charsmax(g_ban_reason))
 	filter_load_words()
 }
 
@@ -90,20 +91,28 @@ stock filter_check_chat(id)
 	client_print(id, print_chat, "[Chat] Inappropriate language is not allowed.")
 	log_amx("CHATFILTER: #%d <%s> matched '%s'", get_user_userid(id), said, hit)
 
-	if (get_pcvar_num(cvar_kick))
-		set_task(0.2, "filter_kick_player", id)
+	if (get_pcvar_num(cvar_ban))
+		set_task(0.2, "filter_ban_player", id)
 
 	return PLUGIN_HANDLED
 }
 
-public filter_kick_player(id)
+public filter_ban_player(id)
 {
 	if (!is_user_connected(id))
 		return
 
-	new cmd[144]
-	formatex(cmd, charsmax(cmd), "kick #%d ^"%s^"", get_user_userid(id), g_kick_reason)
+	new minutes = get_pcvar_num(cvar_ban_minutes)
+
+	if (minutes < 1)
+		minutes = 1
+
+	client_print(id, print_chat, "[Chat] You have been temporarily banned for %d minute(s).", minutes)
+
+	new cmd[160]
+	formatex(cmd, charsmax(cmd), "amx_ban #%d %d ^"%s^"", get_user_userid(id), minutes, g_ban_reason)
 	server_cmd("%s", cmd)
+	server_exec()
 }
 
 stock filter_load_words()
