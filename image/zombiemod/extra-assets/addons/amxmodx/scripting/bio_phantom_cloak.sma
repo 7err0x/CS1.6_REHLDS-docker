@@ -1,6 +1,6 @@
 /*
- * [BH] Phantom cloak — zombie class hides when no human is within range.
- * Pairs with [Phantom] in bh_zombieclass.ini (third-person model via Biohazard player_model ent).
+ * [BH] Phantom cloak — zombie class hides from survivors when no human is in range.
+ * Zombies always see cloaked phantoms (FM_AddToFullPack per viewer, not global EF_NODRAW).
  */
 #include <amxmodx>
 #include <fakemeta>
@@ -12,16 +12,13 @@
 #endif
 
 #define PLUGIN "[BH] Phantom cloak"
-#define VERSION "1.0"
+#define VERSION "1.1"
 #define AUTHOR "cs16docker"
 
 #define CLASS_NAME "Phantom"
 #define MODEL_CLASSNAME "player_model"
 
-// GoldSrc: 1 unit ≈ 1 inch → 3 m ≈ 118 units.
-#define DEFAULT_RANGE_UNITS 300.0
-
-new const g_class_hint[] = "[Phantom] You become invisible when no survivor is within ~6m"
+new const g_class_hint[] = "[Phantom] You become invisible to survivors when no one is within range."
 
 new g_phantom_class = -1
 new g_maxplayers
@@ -45,6 +42,8 @@ public plugin_init2()
 	cvar_interval = register_cvar("bh_phantom_interval", "0.15")
 	cvar_hint = register_cvar("bh_phantom_hint", "1")
 
+	register_forward(FM_AddToFullPack, "fw_AddToFullPack", 0)
+
 	set_task(get_pcvar_float(cvar_interval), "task_cloak_tick", 0, _, _, "b")
 	set_task(1.0, "task_resolve_class", 0, _, _, "b")
 }
@@ -63,10 +62,7 @@ public task_resolve_class()
 public event_gamestart()
 {
 	for (new i = 1; i <= g_maxplayers; i++)
-	{
 		g_cloaked[i] = false
-		phantom_set_model_visible(i, true)
-	}
 }
 
 public event_infect(victim, attacker)
@@ -97,23 +93,47 @@ public task_cloak_tick()
 		task_cloak_player(id)
 }
 
+public fw_AddToFullPack(es_handle, e, ent, host, hostflags, player, pSet)
+{
+	if (!get_pcvar_num(cvar_enable) || g_phantom_class == -1)
+		return FMRES_IGNORED
+
+	if (!pev_valid(ent) || !is_user_connected(host) || is_user_hltv(host))
+		return FMRES_IGNORED
+
+	// Survivors only: cloaked phantom third-person models are omitted from the snapshot.
+	if (is_user_zombie(host))
+		return FMRES_IGNORED
+
+	static classname[32]
+	pev(ent, pev_classname, classname, charsmax(classname))
+
+	if (!equal(classname, MODEL_CLASSNAME))
+		return FMRES_IGNORED
+
+	new owner = pev(ent, pev_owner)
+
+	if (owner < 1 || owner > g_maxplayers)
+		return FMRES_IGNORED
+
+	if (!g_cloaked[owner])
+		return FMRES_IGNORED
+
+	return FMRES_SUPERCEDE
+}
+
 stock task_cloak_player(id)
 {
 	if (!is_user_alive(id) || !is_user_zombie(id) || get_user_class(id) != g_phantom_class)
 	{
-		if (g_cloaked[id])
-			phantom_set_model_visible(id, true)
-
 		g_cloaked[id] = false
 		return
 	}
 
 	if (bh_player_is_frost_frozen(id))
 	{
-		if (g_cloaked[id])
-			phantom_set_model_visible(id, true)
-
 		g_cloaked[id] = false
+		phantom_ensure_model_drawn(id)
 		return
 	}
 
@@ -122,8 +142,8 @@ stock task_cloak_player(id)
 
 	if (should_cloak != g_cloaked[id])
 	{
-		phantom_set_model_visible(id, !should_cloak)
 		g_cloaked[id] = should_cloak
+		phantom_ensure_model_drawn(id)
 	}
 }
 
@@ -146,17 +166,15 @@ stock bool:phantom_near_human(id, Float:range)
 	return false
 }
 
-stock phantom_set_model_visible(id, bool:visible)
+// Keep the follow-model entity visible on the server; humans are filtered in AddToFullPack.
+stock phantom_ensure_model_drawn(id)
 {
 	new ent = fm_find_ent_by_owner(-1, MODEL_CLASSNAME, id)
 
 	if (!pev_valid(ent))
 		return
 
-	if (visible)
-		set_pev(ent, pev_effects, pev(ent, pev_effects) & ~EF_NODRAW)
-	else
-		set_pev(ent, pev_effects, pev(ent, pev_effects) | EF_NODRAW)
+	set_pev(ent, pev_effects, pev(ent, pev_effects) & ~EF_NODRAW)
 }
 
 stock fm_find_ent_by_owner(index, const classname[], owner)
