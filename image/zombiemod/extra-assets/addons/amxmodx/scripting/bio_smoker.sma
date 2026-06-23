@@ -22,7 +22,7 @@
 #endif
 
 #define PLUGIN "[BH] Smoker tongue"
-#define VERSION "1.4"
+#define VERSION "1.5"
 #define AUTHOR "4eRT / BH port"
 
 #define CLASS_NAME "Smoker"
@@ -503,6 +503,23 @@ stock smoker_is_ai(id)
 	return is_user_bot(id) || (pev(id, pev_flags) & FL_FAKECLIENT)
 }
 
+stock bool:smoker_trace_hit_is_player(hit, player)
+{
+	if (!pev_valid(hit))
+		return false
+
+	if (hit == player)
+		return true
+
+	static className[32]
+	pev(hit, pev_classname, className, charsmax(className))
+
+	if (equal(className, "player_model"))
+		return pev(hit, pev_owner) == player
+
+	return false
+}
+
 stock bool:smoker_can_hook_target(id, target)
 {
 	// E-BOT zombie wall-hack knows humans behind cover; strict LOS blocks all hooks.
@@ -517,9 +534,15 @@ stock bool:smoker_can_hook_target(id, target)
 	end[2] += 16.0
 
 	new trace = create_tr2()
-	engfunc(EngFunc_TraceLine, start, end, IGNORE_MONSTERS, id, trace)
-	new bool:canHook = (get_tr2(trace, TR_pHit) == target)
+	engfunc(EngFunc_TraceLine, start, end, DONT_IGNORE_MONSTERS, id, trace)
+
+	new hit = get_tr2(trace, TR_pHit)
+	new Float:fraction
+	get_tr2(trace, TR_flFraction, fraction)
 	free_tr2(trace)
 
-	return canHook
+	if (fraction >= 1.0)
+		return false
+
+	return smoker_trace_hit_is_player(hit, target)
 }
