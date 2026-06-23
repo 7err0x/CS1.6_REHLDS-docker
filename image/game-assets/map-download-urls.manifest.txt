@@ -12,6 +12,7 @@
 #
 # -----------------------------------------------------------------------------
 # HL2GO RAR packs (run compose profile download-assets before zm_* rotations).
+# de_vegas.wad is fetched automatically by map-download.sh (required for zm_toronto).
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_long_night_v2/?download=15233
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_silent_hill/?download=14968
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toronto/?download=15628

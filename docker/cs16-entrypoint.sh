@@ -88,14 +88,12 @@ if [[ "${CS16_SKIP_MERGE_GAME_ASSETS:-0}" != "1" && -d "$SRC" ]]; then
 	if [[ -d "$SRC/wads" && -w "$CSTRIKE/wads" ]]; then
 		while IFS= read -r -d '' w; do
 			cs16_copy_file "$w" "$CSTRIKE/wads/"
-			[[ -w "$CSTRIKE" ]] && cs16_copy_file "$w" "$CSTRIKE/"
 		done < <(find "$SRC/wads" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 	fi
 
 	if [[ -w "$CSTRIKE/wads" ]]; then
 		while IFS= read -r -d '' w; do
 			cs16_copy_file "$w" "$CSTRIKE/wads/"
-			[[ -w "$CSTRIKE" ]] && cs16_copy_file "$w" "$CSTRIKE/"
 		done < <(find "$SRC" -maxdepth 1 -type f \( -iname '*.wad' \) -print0)
 	fi
 fi

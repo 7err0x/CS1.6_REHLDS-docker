@@ -179,6 +179,30 @@ fetch_one() {
 	rm -rf "$dest" "$tmp"
 }
 
+# WADs required by community BSPs but not always shipped inside map archives.
+fetch_required_wads() {
+	local entry name url dest
+
+	for entry in \
+		"de_vegas.wad|https://hl2go.com/downloads/cs1-6/maps/wad-files/de_vegas-wad/?download=8222"
+	do
+		name="${entry%%|*}"
+		url="${entry#*|}"
+		dest="$OUT_DIR/wads/$name"
+
+		if [[ -f "$dest" ]]; then
+			echo "  wad ok: $name"
+			continue
+		fi
+
+		echo ">>> required wad: $name"
+		if ! fetch_one "$url"; then
+			echo "Failed to fetch required WAD: $name" >&2
+			return 1
+		fi
+	done
+}
+
 main() {
 	if [[ -z "${LIST:-}" ]]; then
 		echo "MANIFEST env or LIST must point at a URL list file" >&2
@@ -191,6 +215,10 @@ main() {
 
 	mkdir -p "$OUT_DIR/maps" "$OUT_DIR/sound/_flat" "$OUT_DIR/wads" "$OUT_DIR/models" "$OUT_DIR/sprites"
 	echo "Writing assets to $OUT_DIR"
+
+	if ! fetch_required_wads; then
+		exit 1
+	fi
 
 	local line failed=0
 	while IFS= read -r line || [[ -n "$line" ]]; do

@@ -1,0 +1,12 @@
+# Texture WADs from data/cs16-game-assets/wads/ — symlinked at image build to
+# /var/cs16/state/wads/<name> (HLDS only loads cstrike/<name>, not cstrike/wads/).
+# Add a line when map-download.sh starts fetching a new community WAD.
+de_vegas.wad
+dNksvE.wad
+fu_pack2.wad
+Untitled81.wad
+untitled1.wad
+zm_cookie.wad
+zm_minecraft_v2.wad
+zm_nightmare.wad
+zm_zombust.wad

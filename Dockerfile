@@ -127,6 +127,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY docker/cs16-state-init.sh /usr/local/sbin/cs16-state-init.sh
 COPY docker/cs16-entrypoint.sh /usr/local/sbin/cs16-entrypoint.sh
 COPY docker/cs16-image-slim.sh /usr/local/sbin/cs16-image-slim.sh
+COPY image/game-assets/extra-wad-symlinks.txt /usr/local/share/cs16-extra-wad-symlinks.txt
 COPY docker/ebot-waypoints-bake.sh /usr/local/sbin/ebot-waypoints-bake.sh
 COPY docker/ebot-waypoints-bake-entrypoint.sh /usr/local/sbin/ebot-waypoints-bake-entrypoint.sh
 RUN chmod +x /usr/local/sbin/cs16-state-init.sh /usr/local/sbin/cs16-entrypoint.sh /usr/local/sbin/cs16-image-slim.sh \

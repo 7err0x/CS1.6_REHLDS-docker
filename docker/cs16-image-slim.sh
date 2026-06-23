@@ -7,6 +7,7 @@ CSTRIKE="${CSTRIKE_ROOT:-/opt/steam/hlds/cstrike}"
 VALVE="${HLDS}/valve"
 BOOT="${CS16_BOOTSTRAP_ROOT:-/usr/local/share/cs16-bootstrap}"
 STEAM_HOME="${STEAM_HOME:-/opt/steam}"
+STATE="${CS16_STATE_DIR:-/var/cs16/state}"
 
 echo "[cs16-image-slim] Building cs16-bootstrap (single copy for state-init)..."
 mkdir -p "${BOOT}"
@@ -51,6 +52,27 @@ done
 if [[ -d "${CSTRIKE}/wads" ]]; then
 	find "${CSTRIKE}/wads" -mindepth 1 -delete
 fi
+
+# HLDS loads texture WADs from cstrike/*.wad (mod root), not cstrike/wads/.
+# Runtime cstrike/ is read-only; point each *.wad at the writable state volume.
+echo "[cs16-image-slim] Linking cstrike/*.wad -> ${STATE}/wads/ ..."
+while IFS= read -r -d '' w; do
+	base=$(basename "$w")
+	rm -f "${CSTRIKE}/${base}"
+	ln -s "${STATE}/wads/${base}" "${CSTRIKE}/${base}"
+done < <(find "${CSTRIKE}" -maxdepth 1 -type f -iname '*.wad' -print0 2>/dev/null)
+
+EXTRA_WAD_LIST="${CS16_EXTRA_WAD_SYMLINKS:-/usr/local/share/cs16-extra-wad-symlinks.txt}"
+if [[ -f "$EXTRA_WAD_LIST" ]]; then
+	while IFS= read -r base || [[ -n "$base" ]]; do
+		[[ -z "$base" || "$base" =~ ^[[:space:]]*# ]] && continue
+		base="${base%%#*}"
+		base="${base//[[:space:]]/}"
+		[[ -z "$base" ]] && continue
+		[[ -L "${CSTRIKE}/${base}" || -e "${CSTRIKE}/${base}" ]] && continue
+		ln -s "${STATE}/wads/${base}" "${CSTRIKE}/${base}"
+	done < "$EXTRA_WAD_LIST"
+fi
 # Keep lang/gamedata in the image; only vault is persisted on the cs16-state volume.
 if [[ -d "${CSTRIKE}/addons/amxmodx/data/vault" ]]; then
 	find "${CSTRIKE}/addons/amxmodx/data/vault" -mindepth 1 -delete
@@ -59,7 +81,6 @@ fi
 echo "[cs16-image-slim] Removing AMXX build artifacts..."
 rm -rf "${CSTRIKE}/addons/amxmodx/scripting"
 
-STATE="${CS16_STATE_DIR:-/var/cs16/state}"
 PROFILE="${CS16_STATE_PROFILE:-respawn}"
 
 mkdir -p "${BOOT}/hlds-meta" "${BOOT}/hlds-meta-respawn" "${BOOT}/hlds-meta-biohazard"

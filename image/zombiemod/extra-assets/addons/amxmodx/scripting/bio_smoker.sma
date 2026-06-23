@@ -74,7 +74,7 @@ public plugin_init2()
 	cvar_hint = register_cvar("bh_smoker_hint", "1")
 	cvar_freeze_victim = register_cvar("bh_smoker_freeze_victim", "1")
 	cvar_bot_enable = register_cvar("bh_smoker_bot_enable", "1")
-	cvar_bot_los = register_cvar("bh_smoker_bot_los", "0")
+	cvar_bot_los = register_cvar("bh_smoker_bot_los", "1")
 
 	register_clcmd("+smoker_tongue", "cmd_tongue_on")
 	register_clcmd("-smoker_tongue", "cmd_tongue_off")
