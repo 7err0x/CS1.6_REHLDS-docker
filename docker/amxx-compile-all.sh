@@ -17,6 +17,7 @@ PACK=(
 	bio_radar.sma
 	bio_smokeflare.sma
 	bio_smoker.sma
+	bio_chatfilter.sma
 	bio_phantom_cloak.sma
 	bio_ebot_schedule.sma
 	spawn_editor.sma
