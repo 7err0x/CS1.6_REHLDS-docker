@@ -29,6 +29,8 @@ CMD_TEAMCHANGE = You are not allowed to change team.
 CMD_GAMENOTSTARTED = Game has not started yet.
 SUICIDEPUNISH_TXT = You have been punished for committing suicide.
 DEAD_RESPAWN_ZOMBIE_TXT = [Biohazard] You will respawn as a zombie in %d seconds.
+DEAD_RESPAWN_HUD_SEC = Respawning as zombie in^n%d seconds
+DEAD_RESPAWN_HUD_MIN = Respawning as zombie in^n%d:%02d
 WELCOME_TXT = This server is running Biohazard v#Version#. Type /help for more info.
 HELP_MOTD_LANG = en
 
@@ -63,5 +65,7 @@ CMD_TEAMCHANGE = Nu poti schimba echipa.
 CMD_GAMENOTSTARTED = Jocul nu a inceput inca.
 SUICIDEPUNISH_TXT = Ai fost pedepsit pentru ca te-ai sinucis.
 DEAD_RESPAWN_ZOMBIE_TXT = [Biohazard] Vei reinvia ca zombie in %d secunde.
+DEAD_RESPAWN_HUD_SEC = Reinvii ca zombie in^n%d secunde
+DEAD_RESPAWN_HUD_MIN = Reinvii ca zombie in^n%d:%02d
 WELCOME_TXT = Acest server ruleaza Biohazard v#Version#. Tasteaza /help pentru mai multe informatii.
 HELP_MOTD_LANG = ro

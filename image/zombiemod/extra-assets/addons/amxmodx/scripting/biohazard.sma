@@ -82,6 +82,7 @@
 #define TASKID_DEADZOMBIE 891
 #define TASKID_DEADZOMBIE_INFECT 892
 #define TASKID_JOINRESPAWN 893
+#define TASKID_DEADRESPAWN_HUD 894
 #define TASKID_NV_SPEC_PLAYER 895
 
 #define EQUIP_PRI (1<<0)
@@ -294,7 +295,7 @@ new const g_teaminfo[][] =
 }
 
 new g_maxplayers, g_spawncount, g_buyzone, g_botclient_pdata, g_sync_hpdisplay, 
-    g_sync_msgdisplay, g_fwd_spawn, g_fwd_result, g_fwd_infect, g_fwd_gamestart, 
+    g_sync_msgdisplay, g_sync_deadrespawn, g_fwd_spawn, g_fwd_result, g_fwd_infect, g_fwd_gamestart, 
     g_msg_flashlight, g_msg_teaminfo, g_msg_scoreattrib, g_msg_money, g_msg_scoreinfo, 
     g_msg_deathmsg , g_msg_screenfade, g_msg_nvgtoggle, Float:g_buytime,  Float:g_spawns[MAX_SPAWNS+1][9],
     Float:g_vecvel[3], bool:g_brestorevel, bool:g_infecting, bool:g_gamestarted,
@@ -307,7 +308,7 @@ new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cva
     cvar_ambience_hear_dist,
     cvar_weaponsmenu, cvar_lights, cvar_killbonus, cvar_enabled, 
     cvar_gamedescription, cvar_botquota, cvar_maxzombies, cvar_flashbang, cvar_buytime,
-    cvar_respawnaszombie, cvar_dead_zombie_respawn, cvar_dead_zombie_respawn_delay,
+    cvar_dead_zombie_respawn, cvar_dead_zombie_respawn_delay,
     cvar_punishsuicide, cvar_infectmoney, cvar_showtruehealth,
     cvar_obeyarmor, cvar_impactexplode, cvar_caphealthdisplay, cvar_zombie_hpmulti,
     cvar_randomclass, cvar_zombiemulti, cvar_knockback, cvar_knockback_dist, cvar_knockback_multi, cvar_ammo,
@@ -319,7 +320,7 @@ new cvar_randomspawn, cvar_skyname, cvar_autoteambalance[4], cvar_starttime, cva
     
 new bool:g_zombie[33], bool:g_falling[33], bool:g_disconnected[33], bool:g_blockmodel[33], 
     bool:g_showmenu[33], bool:g_menufailsafe[33], bool:g_preinfect[33], bool:g_welcomemsg[33], 
-    bool:g_suicide[33], bool:g_pending_infect[33], Float:g_regendelay[33], Float:g_hitdelay[33],
+    bool:g_suicide[33], bool:g_pending_infect[33], Float:g_dead_respawn_at[33], Float:g_regendelay[33], Float:g_hitdelay[33],
     g_mutate[33], g_victim[33], 
     g_modelent[33], g_menuposition[33], g_player_class[33], g_player_weapons[33][2]
 new bool:g_bio_nv_client_on[33]
@@ -550,7 +551,6 @@ public plugin_precache()
 	cvar_nvg_life = register_cvar("bh_nvg_life", "1")
 	cvar_nvg_spectator = register_cvar("bh_nvg_spectator", "1")
 	cvar_nvg_spec_rgb = register_cvar("bh_nvg_spec_rgb", "255255235")
-	cvar_respawnaszombie = register_cvar("bh_respawnaszombie", "1")
 	cvar_dead_zombie_respawn = register_cvar("bh_dead_zombie_respawn", "1")
 	cvar_dead_zombie_respawn_delay = register_cvar("bh_dead_zombie_respawn_delay", "60.0")
 	cvar_painshockfree = register_cvar("bh_painshockfree", "1")
@@ -743,6 +743,7 @@ public plugin_init()
 
 	g_sync_hpdisplay = CreateHudSyncObj()
 	g_sync_msgdisplay = CreateHudSyncObj()
+	g_sync_deadrespawn = CreateHudSyncObj()
 	
 	g_maxplayers = get_maxplayers()
 	
@@ -819,6 +820,7 @@ public client_connect(id)
 	g_bio_nv_spec_on[id] = false
 	g_bio_nv_next_cmd[id] = 0.0
 	g_pending_infect[id] = false
+	g_dead_respawn_at[id] = 0.0
 
 	remove_user_model(g_modelent[id])
 }
@@ -1868,14 +1870,14 @@ public bacon_spawn_player_post(id)
 	
 	if(g_zombie[id])
 	{
-		if(get_pcvar_num(cvar_respawnaszombie) && !g_roundended)
+		if(!g_roundended)
 		{
 			set_zombie_attibutes(id)
-			
+
 			return HAM_IGNORED
 		}
-		else
-			cure_user(id)
+
+		cure_user(id)
 	}
 	else if(pev(id, pev_rendermode) == kRenderTransTexture)
 		reset_user_model(id)
@@ -2021,7 +2023,7 @@ public task_dead_zombie_respawn(taskid)
 	static id
 	id = taskid - TASKID_DEADZOMBIE
 
-	if(!is_user_connected(id) || g_roundended || !g_gamestarted)
+	if(!is_user_connected(id) || is_user_bot(id) || g_roundended || !g_gamestarted)
 		return
 
 	if(is_user_alive(id))
@@ -2035,8 +2037,6 @@ public task_dead_zombie_respawn(taskid)
 		if(!bio_dead_zombie_respawn_allowed())
 			return
 	}
-	else if(!get_pcvar_num(cvar_respawnaszombie))
-		return
 
 	bio_force_respawn(id)
 
@@ -3426,7 +3426,56 @@ stock bio_cancel_dead_zombie_respawn(id)
 {
 	remove_task(TASKID_DEADZOMBIE + id)
 	remove_task(TASKID_DEADZOMBIE_INFECT + id)
+	remove_task(TASKID_DEADRESPAWN_HUD + id)
 	g_pending_infect[id] = false
+	g_dead_respawn_at[id] = 0.0
+}
+
+stock bio_show_dead_respawn_hud(id)
+{
+	if(!is_user_connected(id) || is_user_alive(id) || g_dead_respawn_at[id] <= 0.0)
+		return
+
+	static Float:remaining
+	static mins, secs
+
+	remaining = g_dead_respawn_at[id] - get_gametime()
+
+	if(remaining < 0.0)
+		remaining = 0.0
+
+	secs = floatround(remaining, floatround_ceil)
+	mins = secs / 60
+	secs %= 60
+
+	set_hudmessage(255, 170, 0, 0.90, 0.80, 0, 0.0, 60.0, 0.0, 0.0, -1)
+
+	if(mins > 0)
+		ShowSyncHudMsg(id, g_sync_deadrespawn, "%L", id, "DEAD_RESPAWN_HUD_MIN", mins, secs)
+	else
+		ShowSyncHudMsg(id, g_sync_deadrespawn, "%L", id, "DEAD_RESPAWN_HUD_SEC", secs)
+}
+
+stock bio_start_dead_respawn_hud(id, Float:delay)
+{
+	g_dead_respawn_at[id] = get_gametime() + delay
+	bio_show_dead_respawn_hud(id)
+	set_task(1.0, "task_dead_respawn_hud", TASKID_DEADRESPAWN_HUD + id, _, _, "b")
+}
+
+public task_dead_respawn_hud(taskid)
+{
+	static id
+	id = taskid - TASKID_DEADRESPAWN_HUD
+
+	if(!is_user_connected(id) || is_user_alive(id) || g_roundended || !g_gamestarted || g_dead_respawn_at[id] <= 0.0)
+	{
+		remove_task(taskid)
+		g_dead_respawn_at[id] = 0.0
+		return
+	}
+
+	bio_show_dead_respawn_hud(id)
 }
 
 stock bio_handle_player_death(victim)
@@ -3437,18 +3486,16 @@ stock bio_handle_player_death(victim)
 	if(g_suicide[victim])
 		return
 
+	if(!bio_dead_respawn_player(victim))
+		return
+
 	static Float:delay
 	static bool:pending_infect
 
 	delay = get_pcvar_float(cvar_dead_zombie_respawn_delay)
 
 	if(g_zombie[victim])
-	{
-		if(!get_pcvar_num(cvar_respawnaszombie))
-			return
-
 		pending_infect = false
-	}
 	else
 	{
 		if(!get_pcvar_num(cvar_dead_zombie_respawn))
@@ -3463,6 +3510,7 @@ stock bio_handle_player_death(victim)
 	bio_cancel_dead_zombie_respawn(victim)
 	g_pending_infect[victim] = pending_infect
 	set_task(delay, "task_dead_zombie_respawn", TASKID_DEADZOMBIE + victim)
+	bio_start_dead_respawn_hud(victim, delay)
 
 	if(pending_infect)
 		client_print(victim, print_chat, "%L", victim, "DEAD_RESPAWN_ZOMBIE_TXT", floatround(delay))
@@ -3497,6 +3545,11 @@ stock bool:bio_dead_zombie_respawn_allowed()
 
 	maxzombies = clamp(get_pcvar_num(cvar_maxzombies), 1, 31)
 	return count < maxzombies
+}
+
+stock bool:bio_dead_respawn_player(id)
+{
+	return is_user_connected(id) && !is_user_bot(id) && !is_user_hltv(id)
 }
 
 stock bool:allow_infection()
