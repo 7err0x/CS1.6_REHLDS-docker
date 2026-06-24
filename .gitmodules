@@ -2,3 +2,6 @@
 	path = vendor/Amxx-Laser-TripMine-Entity
 	url = https://github.com/7err0x/Amxx-Laser-TripMine-Entity.git
 	branch = master
+[submodule "ebot"]
+	path = ebot
+	url = https://github.com/EfeDursun125/CS-EBOT.git

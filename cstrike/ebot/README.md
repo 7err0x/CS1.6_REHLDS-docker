@@ -9,6 +9,8 @@ docker compose build cs16-biohazard
 docker compose --profile biohazard up -d --force-recreate cs16-biohazard
 ```
 
+The **`cs16-biohazard`** image builds **`ebot.so`** from the git submodule at [`ebot/`](../../ebot/) (not the upstream release binary). Config assets (`ebot.cfg`, waypoint tools, etc.) still come from the [E-BOT 1.10 release zip](https://github.com/EfeDursun125/CS-EBOT). The submodule is linked with **`-static-libstdc++`** so it loads under HLDS’s older `libstdc++`.
+
 Smoke-test: **`./docker/test-ebot.sh`**.
 
 | File | Role |
