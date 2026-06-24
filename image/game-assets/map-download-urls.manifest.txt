@@ -13,6 +13,7 @@
 # -----------------------------------------------------------------------------
 # HL2GO RAR packs (run compose profile download-assets before zm_* rotations).
 # de_vegas.wad is fetched automatically by map-download.sh (required for zm_toronto).
+# react.wad ships inside the zm_dust2_2x2_fixed HL2GO archive (listed below).
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_long_night_v2/?download=15233
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_silent_hill/?download=14968
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toronto/?download=15628
@@ -20,13 +21,15 @@ https://hl2go.com/downloads/cs1-6/maps/zm_/zm_assault_night/?download=14738
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_inferno/?download=15543
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_office/?download=16498
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_dust/?download=16238
-https://hl2go.com/downloads/cs1-6/maps/zm_/zm_ice_attack/?download=16558
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_ice_attack3/?download=14673
 https://hl2go.com/downloads/cs1-6/maps/de_/de_darkrats/?download=11617
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_school/?download=15983
 https://filecache47.gamebanana.com/mods/dust2_apocalypse.rar
 https://filecache43.gamebanana.com/mods/zm_zombust.rar
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_minecraft_v2/?download=15648
 https://hl2go.com/downloads/cs1-6/maps/zm_/zm_toxic_house2/?download=16003
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_dust2_2x2_fixed/?download=15878
+https://hl2go.com/downloads/cs1-6/maps/zm_/zm_aztec/?download=15808
 
 # respawn classic
 https://hl2go.com/downloads/cs1-6/maps/fy_/fy_pool_day/?download=6610
