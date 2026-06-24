@@ -10,6 +10,7 @@ PACK=(
 	respawn_defaults.sma
 	lasermine.sma
 	biohazard.sma
+	bio_skipvote.sma
 	bio_crosshair_id.sma
 	customflashlight.sma
 	bio_antiblock.sma
