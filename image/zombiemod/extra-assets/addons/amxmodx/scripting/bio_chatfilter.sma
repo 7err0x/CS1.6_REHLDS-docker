@@ -6,7 +6,7 @@
 #include <amxmisc>
 
 #define PLUGIN "[BH] Chat filter"
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define AUTHOR "cs16docker"
 
 #define MAX_WORDS 64
@@ -107,12 +107,38 @@ public filter_ban_player(id)
 	if (minutes < 1)
 		minutes = 1
 
+	new authid[32], ip[16], name[32]
+	new userid = get_user_userid(id)
+
+	get_user_authid(id, authid, charsmax(authid))
+	get_user_ip(id, ip, charsmax(ip), 1)
+	get_user_name(id, name, charsmax(name))
+
 	client_print(id, print_chat, "[Chat] You have been temporarily banned for %d minute(s).", minutes)
 
-	new cmd[160]
-	formatex(cmd, charsmax(cmd), "amx_ban #%d %d ^"%s^"", get_user_userid(id), minutes, g_ban_reason)
-	server_cmd("%s", cmd)
+	if (filter_authid_bannable(authid))
+		server_cmd("banid %d #%d", minutes, userid)
+
+	server_cmd("addip %d %s", minutes, ip)
+	server_cmd("writeid")
+	server_cmd("writeip")
+	server_cmd("kick #%d ^"%s^"", userid, g_ban_reason)
 	server_exec()
+
+	log_amx("CHATFILTER BAN: %s <%s> <%s> %d min", name, authid, ip, minutes)
+}
+
+stock bool:filter_authid_bannable(const authid[])
+{
+	if (!authid[0])
+		return false
+
+	if (equal(authid, "STEAM_ID_LAN") || equal(authid, "VALVE_ID_LAN")
+		|| equal(authid, "STEAM_ID_PENDING") || equal(authid, "VALVE_ID_PENDING")
+		|| equal(authid, "BOT"))
+		return false
+
+	return true
 }
 
 stock filter_load_words()
