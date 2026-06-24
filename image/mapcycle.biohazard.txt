@@ -14,6 +14,7 @@ zm_silent_hill
 zm_school
 zm_office
 de_darkrats
+de_rats
 zm_long_night_v2
 cs_militia
 zm_dust2_2x2_fixed
