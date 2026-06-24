@@ -4,4 +4,5 @@
 	branch = master
 [submodule "ebot"]
 	path = ebot
-	url = https://github.com/EfeDursun125/CS-EBOT.git
+	url = https://github.com/7err0x/CS-EBOT.git
+	branch = path-commitment
