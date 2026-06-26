@@ -10,7 +10,7 @@
 #include <biohazard>
 
 #define PLUGIN_NAME "[BH] zp50-derived Grenade: Frost"
-#define PLUGIN_VERS "1.06"
+#define PLUGIN_VERS "1.07"
 #define PLUGIN_AUTH "ZP Dev Team / BH port"
 
 new g_mp
@@ -25,6 +25,8 @@ new g_mp
 
 #define PEV_NADE_TYPE pev_iuser3
 #define NADE_FRZ      3333
+
+#define MODEL_CLASSNAME "player_model"
 
 #define SCR_FADE_SEC  (1<<12)
 #define GLASS_BF      0x01
@@ -41,6 +43,8 @@ new const MODEL_GLASS[] = "models/glassgibs.mdl"
 
 new Float:g_svGrav[33]
 new g_SvFx[33], Float:g_SvRgb[33][3], g_SvRm[33], Float:g_SvAmt[33]
+new g_ModelFx[33], Float:g_ModelRgb[33][3], g_ModelRm[33], Float:g_ModelAmt[33]
+new bool:g_ModelSaved[33]
 
 new g_msgdmg, g_msgsf
 new g_idTrail, g_idRing, g_idGlass
@@ -87,6 +91,80 @@ stock bh_frost_kill_beam(ent)
 	message_end()
 }
 
+stock fm_find_ent_by_owner(index, const classname[], owner)
+{
+	static ent
+	ent = index
+
+	while((ent = engfunc(EngFunc_FindEntityByString, ent, "classname", classname)) && pev(ent, pev_owner) != owner) {}
+
+	return ent
+}
+
+stock bh_find_player_model_ent(id)
+{
+	return fm_find_ent_by_owner(-1, MODEL_CLASSNAME, id)
+}
+
+// Biohazard zombies use an invisible player hull + visible follow-model entity.
+stock bh_zombie_body_hide(id)
+{
+	set_pev(id, pev_renderfx, kRenderFxNone)
+
+	static Float:rgb[3]
+	rgb[0] = 0.0
+	rgb[1] = 0.0
+	rgb[2] = 0.0
+	set_pev(id, pev_rendercolor, rgb)
+	set_pev(id, pev_rendermode, kRenderTransTexture)
+	set_pev(id, pev_renderamt, 0.0)
+}
+
+stock bh_frost_save_model_render(id)
+{
+	g_ModelSaved[id] = false
+
+	new ent = bh_find_player_model_ent(id)
+	if(!pev_valid(ent))
+		return
+
+	g_ModelFx[id] = pev(ent, pev_renderfx)
+	pev(ent, pev_rendercolor, g_ModelRgb[id])
+	g_ModelRm[id] = pev(ent, pev_rendermode)
+	pev(ent, pev_renderamt, g_ModelAmt[id])
+	g_ModelSaved[id] = true
+}
+
+stock bh_frost_restore_model_render(id)
+{
+	if(!g_ModelSaved[id])
+		return
+
+	g_ModelSaved[id] = false
+
+	new ent = bh_find_player_model_ent(id)
+	if(!pev_valid(ent))
+		return
+
+	set_pev(ent, pev_renderfx, g_ModelFx[id])
+	set_pev(ent, pev_rendercolor, g_ModelRgb[id])
+	set_pev(ent, pev_rendermode, g_ModelRm[id])
+	set_pev(ent, pev_renderamt, g_ModelAmt[id])
+}
+
+stock bh_frost_apply_visual(id)
+{
+	if(is_user_zombie(id))
+	{
+		bh_zombie_body_hide(id)
+		new ent = bh_find_player_model_ent(id)
+		if(pev_valid(ent))
+			shlGlow(ent)
+	}
+	else
+		shlGlow(id)
+}
+
 public plugin_precache()
 {
 	precache_sound(SND_EXP)
@@ -110,8 +188,6 @@ public plugin_init()
 
 	g_mp = get_maxplayers()
 
-	RegisterHam(Ham_TakeDamage, "player", "H_TakeDamage")
-	RegisterHam(Ham_TraceAttack, "player", "H_TraceAttack")
 	RegisterHam(Ham_Killed, "player", "H_Killed")
 
 	register_forward(FM_PlayerPreThink, "H_PreThink")
@@ -152,6 +228,7 @@ public client_disconnected(id)
 	remove_task(id + TASK_FRZ_RM)
 	remove_task(id + TASK_CURE)
 	ClrFrostMark(id)
+	g_ModelSaved[id] = false
 }
 
 public TaskUnfreeze(packed)
@@ -193,10 +270,23 @@ public BHUnfreeze(id, effects)
 	if(is_user_alive(id))
 	{
 		set_pev(id, pev_gravity, g_svGrav[id])
-		set_pev(id, pev_renderfx, g_SvFx[id])
-		set_pev(id, pev_rendercolor, g_SvRgb[id])
-		set_pev(id, pev_rendermode, g_SvRm[id])
-		set_pev(id, pev_renderamt, g_SvAmt[id])
+
+		if(is_user_zombie(id))
+		{
+			set_pev(id, pev_renderfx, g_SvFx[id])
+			set_pev(id, pev_rendercolor, g_SvRgb[id])
+			set_pev(id, pev_rendermode, g_SvRm[id])
+			set_pev(id, pev_renderamt, g_SvAmt[id])
+			bh_zombie_body_hide(id)
+			bh_frost_restore_model_render(id)
+		}
+		else
+		{
+			set_pev(id, pev_renderfx, g_SvFx[id])
+			set_pev(id, pev_rendercolor, g_SvRgb[id])
+			set_pev(id, pev_rendermode, g_SvRm[id])
+			set_pev(id, pev_renderamt, g_SvAmt[id])
+		}
 
 		if(g_msgsf)
 		{
@@ -283,7 +373,8 @@ FreezeStart(id)
 
 	pev(id, pev_gravity, g_svGrav[id])
 
-	shlGlow(id)
+	bh_frost_save_model_render(id)
+	bh_frost_apply_visual(id)
 
 	if(pev(id, pev_flags) & FL_ONGROUND)
 		set_pev(id, pev_gravity, GRAVITY_HIGH_FL)
@@ -312,28 +403,6 @@ stock shlGlow(ent)
 	set_pev(ent, pev_renderamt, 25.0)
 }
 
-public H_TakeDamage(victim, inflictor, attacker, Float:damage, damage_type)
-{
-	if(damage <= 0.0)
-		return HAM_IGNORED
-
-	if(!is_user_connected(attacker) || !is_user_alive(attacker))
-		return HAM_IGNORED
-
-	if(victim != attacker && HasFrost(victim))
-		return HAM_SUPERCEDE
-
-	return HAM_IGNORED
-}
-
-public H_TraceAttack(victim, attacker, Float:flDamage, Float:vecDir[3], ptr, dmg_bits)
-{
-	if(is_user_alive(attacker) && victim != attacker && HasFrost(victim))
-		return HAM_SUPERCEDE
-
-	return HAM_IGNORED
-}
-
 public H_Killed(id)
 {
 	remove_task(id + TASK_CURE)
@@ -348,6 +417,9 @@ public H_PreThink(id)
 		return
 
 	bh_frost_set_maxspeed(id, 1.0)
+
+	if(is_user_zombie(id))
+		bh_zombie_body_hide(id)
 
 	static Float:zero[3]
 	zero[0] = 0.0
