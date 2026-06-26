@@ -38,7 +38,7 @@ public plugin_init2()
 	g_maxplayers = get_maxplayers()
 
 	cvar_enable = register_cvar("bh_phantom_enable", "1")
-	cvar_range = register_cvar("bh_phantom_range", "250.0")
+	cvar_range = register_cvar("bh_phantom_range", "280.0")
 	cvar_interval = register_cvar("bh_phantom_interval", "0.15")
 	cvar_hint = register_cvar("bh_phantom_hint", "1")
 
