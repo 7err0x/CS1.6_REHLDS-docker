@@ -39,6 +39,22 @@ RUN chmod +x /usr/local/bin/amxx-compile-all.sh \
     && /usr/local/bin/amxx-compile-all.sh
 
 # -----------------------------------------------------------------------------
+# Stage 1b — E-BOT from git submodule (replaces release binary on biohazard image)
+# -----------------------------------------------------------------------------
+FROM debian:bookworm-slim AS ebot-build
+
+RUN dpkg --add-architecture i386 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends build-essential clang cmake gcc-multilib g++-multilib libc6-dev-i386 libstdc++6:i386 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY ebot/ /src/ebot/
+WORKDIR /src/ebot/project
+RUN mkdir -p build && cd build \
+    && cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang \
+    && make -j"$(nproc)"
+
+# -----------------------------------------------------------------------------
 # Stage 2 — HLDS + ReHLDS + Metamod + ReGameDLL + ReAPI (no AMXX 1.8 — runtime uses 1.9)
 # -----------------------------------------------------------------------------
 FROM debian:bookworm-slim AS hlds-base
@@ -191,12 +207,14 @@ RUN curl -fsSL -o /tmp/reunion.zip "https://github.com/rehlds/ReUnion/releases/d
     && rm -rf /tmp/reunion /tmp/reunion.zip
 
 ARG CS16_PLUGINS_INI=
+COPY --from=ebot-build /src/ebot/project/build/ebot/ebot.so /tmp/ebot-custom.so
 COPY cstrike/ebot/ebot-biohazard.cfg /tmp/ebot-biohazard.cfg
 COPY cstrike/ebot/ebot-waypoints-bake.cfg /tmp/ebot-waypoints-bake.cfg
 COPY cstrike/ebot/names.cfg /tmp/ebot-names.cfg
 RUN if [[ "${CS16_PLUGINS_INI}" == "plugins-biohazard.ini" ]]; then \
       curl -fsSL -o /tmp/ebot.zip "${EBOT_URL}" \
       && unzip -qo /tmp/ebot.zip -d /opt/steam/hlds/cstrike/addons/ \
+      && cp /tmp/ebot-custom.so /opt/steam/hlds/cstrike/addons/ebot/dlls/ebot.so \
       && cp /tmp/ebot-biohazard.cfg /opt/steam/hlds/cstrike/addons/ebot/ebot-biohazard.cfg \
       && cp /tmp/ebot-waypoints-bake.cfg /opt/steam/hlds/cstrike/addons/ebot/ebot-waypoints-bake.cfg \
       && cp /tmp/ebot-names.cfg /opt/steam/hlds/cstrike/addons/ebot/names.cfg \

@@ -10,3 +10,4 @@ zm_cookie.wad
 zm_minecraft_v2.wad
 zm_nightmare.wad
 zm_zombust.wad
+react.wad

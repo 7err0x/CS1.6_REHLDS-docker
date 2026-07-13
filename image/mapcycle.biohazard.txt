@@ -2,7 +2,7 @@
 // Dark / night ZM maps + stock indoor + arenas.
 cs_estate
 zm_inferno
-zm_ice_attack
+zm_ice_attack3
 zm_toronto
 zm_toxic_house2
 zm_dust
@@ -14,6 +14,10 @@ zm_silent_hill
 zm_school
 zm_office
 de_darkrats
+de_rats
 zm_long_night_v2
 cs_militia
+zm_dust2_2x2_fixed
+zm_aztec
+
 
