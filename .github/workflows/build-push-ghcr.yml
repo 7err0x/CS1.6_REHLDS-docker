@@ -82,7 +82,7 @@ jobs:
           - image: cs16-respawn
             cs16_server_config: server.cfg
             cs16_plugins_ini: plugins-respawn.ini
-            cs16_maps_ini: ""
+            cs16_maps_ini: maps-respawn.ini
           - image: cs16-biohazard
             cs16_server_config: server-biohazard.cfg
             cs16_plugins_ini: plugins-biohazard.ini

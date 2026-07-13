@@ -1,5 +1,6 @@
 // Respawn-friendly rotation: Valve stock maps (HLDS). Add FY/aim/custom BSPs via
 // ./data/cs16-game-assets/maps/ or image/game-assets/map-download-urls.manifest.txt + download-assets.
+// Keep in sync with image/zombiemod/maps-respawn.ini (end-of-map vote pool).
 
 fy_snow
 fy_pool_day

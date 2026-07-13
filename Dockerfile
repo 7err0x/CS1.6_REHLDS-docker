@@ -186,6 +186,7 @@ COPY --from=amxx-build /amxx-kit/addons/amxmodx/scripting/*.amxx \
 COPY image/zombiemod/plugins-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/plugins-biohazard.ini
 COPY image/zombiemod/plugins-respawn.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/plugins-respawn.ini
 COPY image/zombiemod/maps-biohazard.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/maps-biohazard.ini
+COPY image/zombiemod/maps-respawn.ini /opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/maps-respawn.ini
 
 COPY image/zombiemod/extra-assets/ /tmp/zombie-assets/
 RUN bash -c 'shopt -s nullglob; for p in /tmp/zombie-assets/*; do \
