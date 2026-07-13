@@ -227,14 +227,29 @@ amx_scrollmsg "Say /help for rules. Humans: /lm for lasermines." 300
 
 ### Respawn and teams
 
-The **`cs16`** service (profile **`respawn`**) bakes **`configs/profiles/plugins-respawn.ini`** as the only **`plugins.ini`** (AMXX also auto-loads any **`configs/plugins-*.ini`** — profile templates must not use that prefix in **`configs/`**). No Biohazard / lasermines plugins; **`respawn_defaults.amxx`** resets map lighting; **`+exec config/gamemode-respawn.cfg`**; join MOTD from **`respawn_motd_en.html`**; separate **`config.cfg`** / AMXX **vault** under **`hlds-meta-respawn/`** and **`amxx-data-respawn/vault/`**.
+The **`cs16`** service (profile **`respawn`**) bakes **`configs/profiles/plugins-respawn.ini`** as the only **`plugins.ini`** (AMXX also auto-loads any **`configs/plugins-*.ini`** — profile templates must not use that prefix in **`configs/`**). No Biohazard / lasermines plugins; **`respawn_defaults.amxx`** resets map lighting and applies respawn DM presets; **`+exec config/gamemode-respawn.cfg`**; join MOTD from **`respawn_motd_en.html`**; separate **`config.cfg`** / AMXX **vault** under **`hlds-meta-respawn/`** and **`amxx-data-respawn/vault/`**.
+
+**Default mode: FFA respawn deathmatch** — infinite rounds, infinite buy, respawn on death, everyone can kill everyone.
 
 In `cstrike/config/server.cfg`:
 
-- **`mp_forcerespawn 1`** — turns on ReGameDLL **respawn / deathmatch-style** behaviour.
-- **`mp_respawn_immunitytime 3`** — **3 seconds** spawn protection after respawn (ReGameDLL; **`0`** disables). Tune in [`cstrike/config/server.cfg`](cstrike/config/server.cfg) with **`mp_respawn_immunity_effects`** / **`mp_respawn_immunity_force_unset`**.
-- **`mp_infinite_ammo 2`** — infinite **reserve** ammo (reload without running out). Use **`1`** for infinite **clip** (no reload needed).
-- **`mp_freeforall 0`** — keep **CT vs T**. Set to **`1`** for **everyone vs everyone**.
+- **`mp_forcerespawn 1`** — ReGameDLL respawn after death.
+- **`mp_round_infinite 1`** — rounds do not end on time or elimination (ReGameDLL).
+- **`mp_buytime -1`** — buy anytime (ReGameDLL; **`-1`** = no limit).
+- **`mp_freeforall 1`** — **FFA** (default). Use **`0`** for CT vs T team DM.
+- **`mp_respawn_immunitytime 3`** — spawn protection seconds (**`0`** = off).
+- **`mp_infinite_ammo 2`** — infinite reserve ammo (**`1`** = infinite clip).
+
+**Switch FFA ↔ team DM live (RCON / server console):**
+
+| Command | Effect |
+|---------|--------|
+| **`rcon amx_respawn_ffa`** | FFA respawn DM (**`mp_freeforall 1`**, no autobalance) |
+| **`rcon amx_respawn_tdm`** | Team respawn DM (**`mp_freeforall 0`**, CT vs T) |
+| **`rcon amx_respawn_mode ffa`** | Same as **`amx_respawn_ffa`** |
+| **`rcon amx_respawn_mode tdm`** | Same as **`amx_respawn_tdm`** |
+
+Mode is remembered for the rest of the server session (survives **`changelevel`**). After a full container restart, defaults come from **`server.cfg`** again (**FFA**).
 
 More ReGameDLL variables are documented in the [ReGameDLL_CS](https://github.com/rehlds/ReGameDLL_CS) project (see `dist/game.cfg` in that repo for defaults and comments).
 
@@ -780,8 +795,12 @@ If you only need **file edits** (maps, cvars in **`server.cfg`**, AMXX **`users.
 | `kick #userid` | Kick by slot from `status` |
 | `mp_forcerespawn 0` | Disable respawn (round CS again) |
 | `mp_forcerespawn 1` | Enable respawn (ReGameDLL deathmatch-style) |
+| `amx_respawn_ffa` | FFA respawn DM preset (infinite rounds/buy) |
+| `amx_respawn_tdm` | Team respawn DM preset (CT vs T) |
 | `mp_freeforall 0` | Teams on (**CT vs T**) while respawn can stay on |
 | `mp_freeforall 1` | Free-for-all (everyone vs everyone); pair with **`mp_forcerespawn 1`** for FFA DM |
+| `mp_round_infinite 1` | Rounds do not end (ReGameDLL; respawn DM default) |
+| `mp_buytime -1` | Buy anytime (ReGameDLL) |
 | `mp_timelimit 45` | Map time limit (minutes) |
 | `sv_restart 1` | Quick restart |
 | `rcon_password ...` | Change RCON password at runtime (also set in `.env` for next restart) |
@@ -791,15 +810,18 @@ If you only need **file edits** (maps, cvars in **`server.cfg`**, AMXX **`users.
 
 ### Respawn and deathmatch (RCON)
 
-**ReGameDLL** uses **`mp_forcerespawn`** so players **respawn** instead of spectating until round end. Defaults are in **`cstrike/config/server.cfg`**; from the client console (after **`rcon_password`**):
+**ReGameDLL** defaults in **`cstrike/config/server.cfg`**: **FFA respawn DM**, **infinite rounds** (**`mp_round_infinite 1`**), **infinite buy** (**`mp_buytime -1`**), **`mp_forcerespawn 1`**.
 
 | Goal | `rcon` examples |
 |------|-----------------|
-| **Respawn DM, teams (CT vs T)** | `rcon mp_forcerespawn 1` · `rcon mp_freeforall 0` |
-| **Spawn immunity (seconds)** | `rcon mp_respawn_immunitytime 3` (`0` = off) · `mp_respawn_immunity_effects 1` · `mp_respawn_immunity_force_unset 1` |
+| **FFA respawn DM (default)** | `rcon amx_respawn_ffa` |
+| **Team respawn DM (CT vs T)** | `rcon amx_respawn_tdm` |
+| **Same via one command** | `rcon amx_respawn_mode ffa` · `rcon amx_respawn_mode tdm` |
+| **Spawn immunity (seconds)** | `rcon mp_respawn_immunitytime 3` (`0` = off) |
 | **Infinite ammo (reload)** | `rcon mp_infinite_ammo 2` (reserve) · `1` = infinite clip |
-| **FFA respawn deathmatch** | `rcon mp_forcerespawn 1` · `rcon mp_freeforall 1` |
-| **Normal round-based CS** | `rcon mp_forcerespawn 0` · `rcon mp_freeforall 0` |
+| **Normal round-based CS** | `rcon mp_forcerespawn 0` · `rcon mp_freeforall 0` · `rcon mp_round_infinite 0` |
+
+Manual cvar toggles still work: **`rcon mp_forcerespawn 1`** · **`rcon mp_freeforall 0|1`**.
 
 Use **`rcon mp_timelimit 30`** (or any **> 0** value) so the map does not run forever and **map voting** (below) can line up with map time.
 
