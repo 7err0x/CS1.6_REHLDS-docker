@@ -237,6 +237,9 @@ In `cstrike/config/server.cfg`:
 - **`mp_round_infinite 1`** — rounds do not end on time or elimination (ReGameDLL).
 - **`mp_buytime -1`** — buy anytime (ReGameDLL; **`-1`** = no limit).
 - **`mp_freeforall 1`** — **FFA** (default). Use **`0`** for CT vs T team DM.
+- **`mp_randomspawn 1`** — random spawn points (ReGameDLL; best with **`.nav`** on the map).
+- **`mp_roundtime 30`** — 30-minute round timer (with **`mp_round_infinite 1`** for DM).
+- **`respawn_kill_money 600`** — total cash per enemy kill (engine pays **300**; plugin adds the rest).
 - **`mp_respawn_immunitytime 3`** — spawn protection seconds (**`0`** = off).
 - **`mp_infinite_ammo 2`** — infinite reserve ammo (**`1`** = infinite clip).
 

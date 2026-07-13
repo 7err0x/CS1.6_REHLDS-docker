@@ -4,21 +4,31 @@
 #include <cstrike>
 
 #define PLUGIN "Respawn map defaults"
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define AUTHOR "cs16docker"
 
 #define TASK_APPLY_MODE 51881
+#define TASK_KILL_MONEY 51882
+#define ENGINE_KILL_MONEY 300
 
 new cvar_default_mode
+new cvar_kill_money
+new cvar_randomspawn
+new cvar_roundtime
 new g_mode[8]
+new g_kill_attacker
 
 public plugin_init()
 {
 	register_plugin(PLUGIN, VERSION, AUTHOR)
 
 	cvar_default_mode = register_cvar("respawn_default_mode", "ffa")
+	cvar_kill_money = register_cvar("respawn_kill_money", "600")
+	cvar_randomspawn = register_cvar("respawn_randomspawn", "1")
+	cvar_roundtime = register_cvar("respawn_roundtime", "30")
 
 	register_event("HLTV", "event_new_round", "a", "1=0", "2=0")
+	register_event("DeathMsg", "event_death_msg", "a")
 
 	register_concmd("amx_respawn_ffa", "cmd_mode_ffa", ADMIN_RCON, "Switch to FFA respawn deathmatch")
 	register_concmd("amx_respawn_tdm", "cmd_mode_tdm", ADMIN_RCON, "Switch to team respawn deathmatch")
@@ -34,6 +44,45 @@ public plugin_cfg()
 public event_new_round()
 {
 	respawn_reset_lights()
+}
+
+public event_death_msg()
+{
+	new killer = read_data(1)
+	new victim = read_data(2)
+
+	if (killer < 1 || killer > get_maxplayers() || victim < 1 || victim > get_maxplayers())
+		return
+
+	if (killer == victim || !is_user_connected(killer) || is_user_bot(killer))
+		return
+
+	if (!get_pcvar_num(cvar_kill_money))
+		return
+
+	if (!get_cvar_num("mp_freeforall") && cs_get_user_team(killer) == cs_get_user_team(victim))
+		return
+
+	g_kill_attacker = killer
+	set_task(0.1, "task_kill_money_bonus", TASK_KILL_MONEY)
+}
+
+public task_kill_money_bonus()
+{
+	new attacker = g_kill_attacker
+	g_kill_attacker = 0
+
+	if (attacker < 1 || !is_user_connected(attacker))
+		return
+
+	new total = get_pcvar_num(cvar_kill_money)
+	new extra = total - ENGINE_KILL_MONEY
+
+	if (extra <= 0)
+		return
+
+	new money = cs_get_user_money(attacker)
+	cs_set_user_money(attacker, money + extra, 1)
 }
 
 public cmd_mode_ffa(id, level, cid)
@@ -118,12 +167,17 @@ stock respawn_apply_mode()
 
 stock respawn_apply_common()
 {
+	new mins[8]
+	num_to_str(get_pcvar_num(cvar_roundtime), mins, charsmax(mins))
+
 	server_cmd("mp_forcerespawn 1")
 	server_cmd("mp_buytime -1")
 	server_cmd("mp_round_infinite 1")
 	server_cmd("mp_maxrounds 0")
 	server_cmd("mp_winlimit 0")
 	server_cmd("mp_fraglimit 0")
+	server_cmd("mp_randomspawn %d", get_pcvar_num(cvar_randomspawn))
+	server_cmd("mp_roundtime %s", mins)
 	server_exec()
 }
 
