@@ -223,7 +223,7 @@ WELCOME_TXT = Welcome! Infection round — type /help for rules. Biohazard v#Ver
 amx_scrollmsg "Say /help for rules. Humans: /lm for lasermines." 300
 ```
 
-**Note:** `cstrike/config/*.cfg` and `extra-assets/` are **copied into the image at build time** (see [`Dockerfile`](Dockerfile)). Editing them on the host does not affect a running container until you **`docker compose build`** the matching image. Hostname in **`.env`** is the exception (read at container start).
+**Note:** `cstrike/config/*.cfg` and `extra-assets/` are **copied into the image at build time** (see [`Dockerfile`](Dockerfile)). Editing them on the host does not affect a running container until you **`docker compose build`** the matching image and **`--force-recreate`**. If cvars stay stale after build, use **`docker compose build --no-cache cs16`** (or **`cs16-biohazard`**). Hostname in **`.env`** is the exception (read at container start).
 
 ### Respawn and teams
 
@@ -239,7 +239,8 @@ In `cstrike/config/server.cfg`:
 - **`mp_freeforall 1`** — **FFA** (default). Use **`0`** for CT vs T team DM.
 - **`mp_randomspawn 1`** — random spawn points (ReGameDLL; best with **`.nav`** on the map).
 - **`mp_roundtime 30`** — 30-minute round timer (with **`mp_round_infinite 1`** for DM).
-- **`respawn_kill_money 600`** — total cash per enemy kill (engine pays **300**; plugin adds the rest).
+- **`respawn_kill_money 600`** — total cash per enemy kill (engine pays **300**; plugin adds the rest). Verify in logs: **`RESPAWN APPLY v1.3`**.
+- **`rcon amx_respawn_apply`** — re-apply preset if cvars look wrong after a map change.
 - **`mp_respawn_immunitytime 3`** — spawn protection seconds (**`0`** = off).
 - **`mp_infinite_ammo 2`** — infinite reserve ammo (**`1`** = infinite clip).
 
@@ -819,6 +820,7 @@ If you only need **file edits** (maps, cvars in **`server.cfg`**, AMXX **`users.
 |------|-----------------|
 | **FFA respawn DM (default)** | `rcon amx_respawn_ffa` |
 | **Team respawn DM (CT vs T)** | `rcon amx_respawn_tdm` |
+| **Re-apply DM preset** | `rcon amx_respawn_apply` |
 | **Same via one command** | `rcon amx_respawn_mode ffa` · `rcon amx_respawn_mode tdm` |
 | **Spawn immunity (seconds)** | `rcon mp_respawn_immunitytime 3` (`0` = off) |
 | **Infinite ammo (reload)** | `rcon mp_infinite_ammo 2` (reserve) · `1` = infinite clip |
