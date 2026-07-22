@@ -121,6 +121,7 @@ Upstream components listed above retain their own licenses. **Game assets** (map
   - [Server console / RCON](#3-server-console--rcon)
   - [Adding or disabling plugins](#4-adding-or-disabling-plugins)
 - [Metamod, ReUnion, and AMX Mod X](#metamod-reunion-and-amx-mod-x)
+  - [ReUnion SteamIDs (`STEAM_a:b:c`)](#reunion-steamids-steam_abc)
 - [Ports and security](#ports-and-security)
   - [Container hardening](#container-hardening-cs16-cs16-biohazard)
   - [Biohazard egress lockdown](#biohazard-egress-lockdown-cs16-biohazard)
@@ -173,7 +174,7 @@ Manual rebuild: **Actions → Build and push to GHCR → Run workflow** (optiona
 | `cstrike/config/gamemode-biohazard.cfg` | **`cs16-biohazard`** boot **`+exec`**: **`mapcyclefile`** / flashlight. |
 | `cstrike/config/server-biohazard.cfg` | Baked as **`server.cfg`** on **`cs16-biohazard` only** — **`mp_forcerespawn 0`**, **`mapcycle.biohazard.txt`**, **`amx_scrollmsg`** (see [Server name, game mode, welcome text, and announcements](#server-name-game-mode-welcome-text-and-announcements)). |
 | `cstrike/amxmodx/users.ini` | **AMXX** admins (Steam ID / IP / flags). Mounted into **`addons/amxmodx/configs/users.ini`**. |
-| `reunion.cfg` (in image) | ReUnion auth: **`AuthVersion = 2`**, **`cid_NoSteam47/48 = 3`** (STEAM\_ IDs by IP) so non‑Steam clients are not rejected. Mount your own copy over `/opt/steam/hlds/cstrike/reunion.cfg` if you need stricter rules. |
+| `reunion.cfg` (in image) | ReUnion auth: **`AuthVersion = 2`**, **`cid_NoSteam47/48 = 3`** (STEAM\_ IDs by IP → often **`STEAM_0:4:…`**). See [ReUnion SteamIDs](#reunion-steamids-steam_abc). Mount your own copy over `/opt/steam/hlds/cstrike/reunion.cfg` if you need stricter rules. |
 
 After editing `.env` or `cstrike/config/server.cfg`:
 
@@ -832,8 +833,8 @@ rcon writeid
 rcon kick "name"
 ```
 
-- **`STEAM_X:Y:Z`** — **Y must be `0` or `1`** (`STEAM_0:4:…` is invalid and will never match).
-- With **ReUnion**, ban both **`STEAM_0`** and **`STEAM_1`** for the same account when unsure.
+- **`STEAM_X:Y:Z`** — use the exact ID from **`status`**. With ReUnion, **`STEAM_0:4:…`** is a valid *display* ID (IP-gen); classic **`banid`** may still ignore **`Y=4`** — see [ReUnion SteamIDs](#reunion-steamids-steam_abc).
+- For IP-auth players, prefer **`addip`** / **`listip.cfg`**, or ban while online with **`banid 0 #userid`**.
 - After editing the host file: **`rcon exec banned.cfg`** (or changelevel). The engine also loads it on map start.
 - **`bio_chatfilter.amxx`** uses **temporary** in-memory bans only and **does not** call **`writeid`**, so it will not wipe permanent entries (older builds could overwrite the file with `banid 0.0 HLTV`).
 
@@ -967,6 +968,72 @@ More detail: [AMX Mod X manual](https://wiki.alliedmods.net/Category:AMX_Mod_X) 
 - **Admins / menus / plugins:** see **[Using AMX Mod X](#using-amx-mod-x-amxx)** above; config file **`cstrike/amxmodx/users.ini`** ([Adding Admins](https://wiki.alliedmods.net/Adding_Admins_(AMX_Mod_X))).
 - **Custom plugins:** bind‑mount **`addons/amxmodx/configs/plugins.ini`** (and drop **`.amxx`** files under **`addons/amxmodx/plugins/`**) or bake them in a derived image.
 - If the server **segfaults on map load** after AMXX or plugin changes, try **ReUnion-only** Metamod (`plugins.ini` with just **`reunion_mm_i386.so`**) to isolate the cause.
+
+### ReUnion SteamIDs (`STEAM_a:b:c`)
+
+Config: [`cstrike/reunion.cfg`](cstrike/reunion.cfg) (baked into the image). This stack forces **`AuthVersion = 2`**, **`cid_NoSteam47 = 3`**, **`cid_NoSteam48 = 3`** so non‑Steam protocol 47/48 clients are accepted and get a **STEAM_ ID generated from their IP**.
+
+#### Anatomy
+
+```text
+STEAM_  a  :  b  :  c
+        │     │     └── account / hash (player number)
+        │     └── second part (Y)
+        └── first part (X) — with AuthVersion 2, often a *client-type tag*
+```
+
+On a normal Valve-only server you mostly see **`STEAM_0:0:…`** / **`STEAM_0:1:…`**. With ReUnion, **`a`** (and for IP-gen also **`b`**) are labels so different client types do not collide — not classic “Steam universe” semantics.
+
+#### What this image assigns (`cid_*`)
+
+| Client type | Setting | Result |
+|-------------|---------|--------|
+| Real Steam | `cid_Steam = 1` | Real STEAM_ ID |
+| Steam pending | `cid_SteamPending = 5` | Reject |
+| HLTV | `cid_HLTV = 5` | Reject |
+| NoSteam p47 / p48 | `cid_NoSteam47/48 = 3` | Accept → **STEAM_ from IP** |
+| RevEmu / SC2009 / SteamEmu / AVSMP / … | mostly `= 1` | Accept → STEAM_ from that emu |
+| Setti scanner | `cid_Setti = 3` | STEAM_ from IP |
+
+`3` = generate STEAM_ from IP · `5` = reject · `1` = keep / use that client’s STEAM_ ID.
+
+#### Prefix tags (`AuthVersion = 2` only)
+
+| Setting | Value | Typical ID shape |
+|---------|-------|------------------|
+| `IPGen_Prefix1` / `IPGen_Prefix2` | `0` / `4` | IP-auth → **`STEAM_0:4:…`** |
+| `Native_Prefix1` | `0` | Real Steam → `STEAM_0:0/1:…` |
+| `RevEmu_Prefix1` | `1` | RevEmu → `STEAM_1:…` |
+| `OldRevEmu_Prefix1` | `2` | Old RevEmu → `STEAM_2:…` |
+| `SteamEmu_Prefix1` | `3` | SteamEmu → `STEAM_3:…` |
+| `AVSMP_Prefix1` | `4` | AVSMP → `STEAM_4:…` (note: **`4` is in `a`**, not `b`) |
+| `Setti_Prefix1` / `SXEI_Prefix1` | `5` / `6` | `STEAM_5:…` / `STEAM_6:…` |
+
+`SteamIdHashSalt` is empty → no extra hashing under AuthVersion 2.
+
+#### Examples
+
+| Log / `status` ID | Meaning on *this* server |
+|-------------------|--------------------------|
+| **`STEAM_0:4:1936739703`** | **IP-generated** NoSteam (`IPGen` 0 + 4; `c` from IP). Same IP → same `c`; new IP → new player identity for bans/admins. |
+| `STEAM_0:0:88123456` / `STEAM_0:1:88123456` | Real Steam (or IP-gen if you change `IPGen_Prefix2` to 0/1) |
+| `STEAM_1:0:44556677` | RevEmu-tagged (`a=1`) |
+| `STEAM_4:0:998877` | AVSMP-tagged (`a=4`) — **not** the same as `STEAM_0:4:…` |
+
+Flow:
+
+```text
+Client connects → ReUnion detects type → cid_* (accept / reject / IP-STEAM)
+  → AuthVersion 2 stamps prefixes → AMXX / banid see final STEAM_a:b:c
+```
+
+#### Admins, bans, and changing IDs
+
+- **`users.ini`:** use the **exact** string from **`status`** / logs (including `STEAM_0:4:…`).
+- **`banid` / `banned.cfg`:** classic engine often only accepts **`b` ∈ {0, 1}**, so lines like `banid 0.0 STEAM_0:4:…` may be **ignored**. Prefer **`addip`** / **`listip.cfg`**, or **`banid 0 #userid`** while the player is online. ReUnion also notes that ban matching uses the steamid **without** custom prefix cosmetics.
+- **Force a different ID shape:** you cannot pick one player’s ID arbitrarily. Options: real Steam client; change `IPGen_Prefix2` (e.g. to `0`/`1`); set `SteamIdHashSalt`; raise `AuthVersion`; or reject NoSteam (`cid_NoSteam* = 5`). Changing prefixes/salt remaps **everyone** and breaks old admin/ban lines.
+
+Edit **`cstrike/reunion.cfg`**, rebuild the image, recreate the container. Or bind-mount over `/opt/steam/hlds/cstrike/reunion.cfg`.
 
 ---
 
