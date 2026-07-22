@@ -14,6 +14,8 @@ x-ebot-waypoints-volumes: &ebot_waypoints_volumes
   - ./data/cs16-ebot-waypoints:/mnt/cs16-ebot-waypoints:z
   - ./cstrike/ebot/bh_ebot_schedule-bake.cfg:/opt/steam/hlds/cstrike/addons/amxmodx/configs/bh_ebot_schedule.cfg:ro,z
   - cs16-state:/var/cs16/state:z
+  - ./data/cs16-state/banned.cfg:/var/cs16/state/hlds-meta/banned.cfg:z
+  - ./data/cs16-state/listip.cfg:/var/cs16/state/hlds-meta/listip.cfg:z
   - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/ebot-waypoints-bake:/opt/steam/hlds/cstrike/logs:z
 
 x-ebot-waypoints-service: &ebot_waypoints_service
@@ -59,6 +61,7 @@ services:
     entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
     volumes:
       - cs16-state:/var/cs16/state:z
+      - ./data/cs16-state:/host/cs16-state:z
       - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs:z
     image: ${CS16_BIOHAZARD_IMAGE:-ghcr.io/7err0x/cs16-biohazard:latest}
     profiles:

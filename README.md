@@ -112,6 +112,7 @@ Upstream components listed above retain their own licenses. **Game assets** (map
   - [From the CS 1.6 game client (simplest)](#from-the-cs-16-game-client-simplest)
   - [From the host without the game (UDP GoldSrc RCON)](#from-the-host-without-the-game-udp-goldsrc-rcon)
   - [Useful server commands](#useful-server-commands-via-rcon--or-server-console)
+  - [Permanent bans (`banned.cfg` / `listip.cfg`)](#permanent-bans-bannedcfg--listipcfg)
   - [Respawn and deathmatch (RCON)](#respawn-and-deathmatch-rcon)
   - [Map voting (stock AMXX)](#map-voting-stock-amxx)
 - [Using AMX Mod X (AMXX)](#using-amx-mod-x-amxx)
@@ -812,6 +813,30 @@ If you only need **file edits** (maps, cvars in **`server.cfg`**, AMXX **`users.
 | `rcon_password ...` | Change RCON password at runtime (also set in `.env` for next restart) |
 | `amx_reloadadmins` | Reload **`users.ini`** after you edit AMXX admins on the host |
 
+### Permanent bans (`banned.cfg` / `listip.cfg`)
+
+These files are **bind-mounted from the host** (writable in the container for **`writeid`** / **`writeip`**):
+
+| Host | Container |
+|------|-----------|
+| [`data/cs16-state/banned.cfg`](data/cs16-state/banned.cfg) | `/var/cs16/state/hlds-meta/banned.cfg` → `cstrike/banned.cfg` |
+| [`data/cs16-state/listip.cfg`](data/cs16-state/listip.cfg) | `/var/cs16/state/hlds-meta/listip.cfg` → `cstrike/listip.cfg` |
+
+**Do not** edit bans only inside a named-volume copy — that is no longer the source of truth. Edit the host files above, or use RCON and **`writeid`**.
+
+```text
+rcon status
+rcon banid 0 STEAM_0:0:ACCOUNT
+rcon banid 0 STEAM_1:0:ACCOUNT
+rcon writeid
+rcon kick "name"
+```
+
+- **`STEAM_X:Y:Z`** — **Y must be `0` or `1`** (`STEAM_0:4:…` is invalid and will never match).
+- With **ReUnion**, ban both **`STEAM_0`** and **`STEAM_1`** for the same account when unsure.
+- After editing the host file: **`rcon exec banned.cfg`** (or changelevel). The engine also loads it on map start.
+- **`bio_chatfilter.amxx`** uses **temporary** in-memory bans only and **does not** call **`writeid`**, so it will not wipe permanent entries (older builds could overwrite the file with `banid 0.0 HLTV`).
+
 **Biohazard profile (`cs16-biohazard`):** infect / round control — **`amx_infect`**, **`amx_slay @ct`** / **`@t`**, **`sv_restart 1`** — see [RCON: infect a player or end the round (Biohazard)](#rcon-infect-a-player-or-end-the-round-biohazard). Use **`BIOHAZARD_RCON_PASSWORD`** on port **`BIOHAZARD_SERVER_PORT`** (default **27017**).
 
 ### Respawn and deathmatch (RCON)
@@ -867,23 +892,50 @@ AMXX extends the server with plugins (menus, admin commands, map voting, etc.). 
 ### 1. Make yourself an admin
 
 1. Open **`cstrike/amxmodx/users.ini`** on the host (it is bind-mounted; see [Adding Admins](https://wiki.alliedmods.net/Adding_Admins_(AMX_Mod_X))).
-2. Add a line for your **SteamID**, **name**, or **IP**. Example (SteamID, full admin flags typical for 1.9 — adjust to taste):
+2. Add a line for your **SteamID**, **name**, or **IP**. Prefer **SteamID with no password** (account flags **`ce`**):
 
    ```text
    "STEAM_0:1:12345678" "" "abcdefghijklmnopqrstu" "ce" "" ""
    ```
 
-   Fields: **`"auth"` `"password"` `"access flags"` `"account flags"` `"name"` `"contact"`**. Flag **`l`** is enough for the default language menu; **`abcdefghijklmnopqrstu`** is a common “full admin” set for stock plugins.
+   Use the exact ID from **`status`** / server logs (with **ReUnion** it may look like **`STEAM_0:4:…`** — that is valid).
 
-3. Apply without restart: join the server and run **`rcon amx_reloadadmins`** (after **`rcon_password …`**), **or** change map / restart the container.
+3. Apply without restart: **`rcon amx_reloadadmins`**, **or** change map / recreate the container.
+
+#### Admin password (`setinfo _pw`)
+
+If field 2 is a non-empty password **and** account flags include **`a`** (kick on bad/missing password), the client **must** send that password or AMXX kicks with **`You have no entry to the server...`**. That is **not** a `banned.cfg` ban.
+
+| `users.ini` (fields 2 + 4) | Client must |
+|----------------------------|-------------|
+| `""` … **`ce`** (no password) | Nothing — SteamID alone grants admin |
+| `"MySecret"` … **`ac`** | `setinfo _pw "MySecret"` before / when connecting |
+
+**Client setup** (password field name is **`amx_password_field`**, default **`_pw`** in **`amxx.cfg`**):
+
+```text
+setinfo _pw "MySecret"
+```
+
+To keep it across launches, put the same line in the client’s **`cstrike/userconfig.cfg`** or **`autoexec.cfg`**.
+
+Example passworded admin line:
+
+```text
+"STEAM_0:4:12345678" "MySecret" "abcdefghijklmnopqrstu" "ac" "" ""
+```
+
+**Account flags (field 4) quick reference:** **`c`** = SteamID, **`d`** = IP, **`e`** = ignore password, **`a`** = kick if password wrong/missing.
+
+Fields: **`"auth"` `"password"` `"access flags"` `"account flags"` `"name"` `"contact"`**. Flag **`l`** is enough for the default language menu; **`abcdefghijklmnopqrstu`** is a common “full admin” set for stock plugins.
+
+If **`amxmodmenu`** does nothing, your user is not recognized as an admin: double-check **`users.ini`**, run **`amx_reloadadmins`**, confirm **`auth`** matches how you connect, and if you use flag **`a`**, confirm **`setinfo _pw`**.
 
 ### 2. In-game (as an admin)
 
 - **`amxmodmenu`** — main **admin menu** (kick/ban/slap/client commands), provided stock **`admin.amxx`** / **`menufront.amxx`** are enabled.
 - **`amx_help`** — lists many AMXX commands in the console.
 - **`amx_langmenu`** — choose client language if **`multilingual.amxx`** is on.
-
-If **`amxmodmenu`** does nothing, your user is not recognized as an admin: double-check **`users.ini`**, run **`amx_reloadadmins`**, and confirm your **`auth`** field matches how you connect (SteamID vs IP).
 
 ### 3. Server console / RCON
 
@@ -939,7 +991,7 @@ Both game services use:
 
 **Writable named volumes** (created automatically on first **`docker compose up`** — no host **`mkdir`** / **`chmod`**):
 
-**`./data/cs16-game-assets`** (community maps/sounds/WADs), **`cs16-state`** (bans, per-profile **`config.cfg`**, AMXX vault, etc.). **HLDS log files** under **`./data/cs16-logs/{respawn,biohazard}/`**.
+**`./data/cs16-game-assets`** (community maps/sounds/WADs), **`cs16-state`** volume (per-profile **`config.cfg`**, AMXX vault, etc.), and host bind-mounts **`./data/cs16-state/banned.cfg`** / **`listip.cfg`** for permanent bans. **HLDS log files** under **`./data/cs16-logs/{respawn,biohazard}/`**.
 
 **Configs and plugins** are **baked into the image** from **`cstrike/`** and **`image/zombiemod/`** (edit in git, then **`docker compose build`**). Populate game assets with:
 

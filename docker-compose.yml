@@ -41,12 +41,17 @@ x-cs16-build-args: &cs16_build_args
 x-cs16-runtime-volumes-respawn: &cs16_runtime_volumes_respawn
   - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
   - cs16-state:/var/cs16/state:z
+  # Host-editable permanent bans (overlay volume files; writable for writeid/writeip).
+  - ./data/cs16-state/banned.cfg:/var/cs16/state/hlds-meta/banned.cfg:z
+  - ./data/cs16-state/listip.cfg:/var/cs16/state/hlds-meta/listip.cfg:z
   - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/respawn:/opt/steam/hlds/cstrike/logs:z
 
 x-cs16-runtime-volumes-biohazard: &cs16_runtime_volumes_biohazard
   - ./data/cs16-game-assets:/mnt/cs16-game-assets:ro,z
   - ./data/cs16-ebot-waypoints:/mnt/cs16-ebot-waypoints:ro,z
   - cs16-state:/var/cs16/state:z
+  - ./data/cs16-state/banned.cfg:/var/cs16/state/hlds-meta/banned.cfg:z
+  - ./data/cs16-state/listip.cfg:/var/cs16/state/hlds-meta/listip.cfg:z
   - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}/biohazard:/opt/steam/hlds/cstrike/logs:z
 
 x-cs16-server-common: &cs16_server_common
@@ -104,6 +109,7 @@ services:
     entrypoint: ["/usr/local/sbin/cs16-state-init.sh"]
     volumes:
       - cs16-state:/var/cs16/state:z
+      - ./data/cs16-state:/host/cs16-state:z
       - ${CS16_LOGS_HOST_DIR:-./data/cs16-logs}:/host/cs16-logs:z
     image: ${CS16_RESPAWN_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}
     profiles:
@@ -132,6 +138,7 @@ services:
         <<: *cs16_build_args
         CS16_SERVER_CONFIG: server.cfg
         CS16_PLUGINS_INI: plugins-respawn.ini
+        CS16_MAPS_INI: maps-respawn.ini
     image: ${CS16_RESPAWN_IMAGE:-ghcr.io/7err0x/cs16-respawn:latest}
     container_name: cs16-respawn0
     ports:
@@ -139,6 +146,7 @@ services:
       - "${SERVER_PORT:-27016}:${SERVER_PORT:-27016}/udp"
     command: *cs16_respawn_cmd
     volumes: *cs16_runtime_volumes_respawn
+#    network_mode: "pasta"
 #    networks:
 #      - isolated
 
@@ -160,6 +168,7 @@ services:
       - "${BIOHAZARD_SERVER_PORT:-27017}:${BIOHAZARD_SERVER_PORT:-27017}/udp"
     command: *cs16_biohazard_cmd
     volumes: *cs16_runtime_volumes_biohazard
+#    network_mode: "pasta"
 #    networks:
 #      - isolated
 

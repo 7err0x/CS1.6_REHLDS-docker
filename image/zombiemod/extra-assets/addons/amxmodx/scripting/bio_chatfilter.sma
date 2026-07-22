@@ -1,12 +1,15 @@
 /*
  * [BH] Chat profanity filter — mute + temp ban on blocked words (case-insensitive).
  * Word list: addons/amxmodx/configs/bh_chatfilter_words.ini
+ *
+ * Temp bans stay in-memory only (no writeid/writeip) so permanent entries in
+ * banned.cfg / listip.cfg are never overwritten.
  */
 #include <amxmodx>
 #include <amxmisc>
 
 #define PLUGIN "[BH] Chat filter"
-#define VERSION "1.2"
+#define VERSION "1.3"
 #define AUTHOR "cs16docker"
 
 #define MAX_WORDS 64
@@ -116,16 +119,17 @@ public filter_ban_player(id)
 
 	client_print(id, print_chat, "[Chat] You have been temporarily banned for %d minute(s).", minutes)
 
+	// Temp bans only — never writeid/writeip (those rewrite the whole cfg and wipe permanent bans).
 	if (filter_authid_bannable(authid))
-		server_cmd("banid %d #%d", minutes, userid)
+		server_cmd("banid %d %s", minutes, authid)
 
-	server_cmd("addip %d %s", minutes, ip)
-	server_cmd("writeid")
-	server_cmd("writeip")
+	if (ip[0] && !equal(ip, "loopback") && !equal(ip, "127.0.0.1"))
+		server_cmd("addip %d %s", minutes, ip)
+
 	server_cmd("kick #%d ^"%s^"", userid, g_ban_reason)
 	server_exec()
 
-	log_amx("CHATFILTER BAN: %s <%s> <%s> %d min", name, authid, ip, minutes)
+	log_amx("CHATFILTER BAN: %s <%s> <%s> %d min (session-only, no writeid)", name, authid, ip, minutes)
 }
 
 stock bool:filter_authid_bannable(const authid[])
@@ -135,10 +139,22 @@ stock bool:filter_authid_bannable(const authid[])
 
 	if (equal(authid, "STEAM_ID_LAN") || equal(authid, "VALVE_ID_LAN")
 		|| equal(authid, "STEAM_ID_PENDING") || equal(authid, "VALVE_ID_PENDING")
-		|| equal(authid, "BOT"))
+		|| equal(authid, "BOT") || equal(authid, "HLTV"))
 		return false
 
-	return true
+	// STEAM_X:Y:Z / VALVE_X:Y:Z — Y must be 0 or 1
+	if (equali(authid, "STEAM_", 6) || equali(authid, "VALVE_", 6))
+	{
+		new colon = contain(authid, ":")
+		if (colon == -1)
+			return false
+
+		new y = authid[colon + 1]
+		if ((y == '0' || y == '1') && authid[colon + 2] == ':')
+			return true
+	}
+
+	return false
 }
 
 stock filter_load_words()

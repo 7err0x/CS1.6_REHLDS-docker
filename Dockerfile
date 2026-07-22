@@ -262,6 +262,9 @@ RUN if [[ "$CS16_SERVER_CONFIG" != "server.cfg" ]]; then \
       && -f "/opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/${CS16_MAPS_INI}" ]]; then \
       cp "/opt/steam/hlds/cstrike/addons/amxmodx/configs/profiles/${CS16_MAPS_INI}" \
          /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps.ini; \
+    else \
+      # No profile maps.ini → drop stock AMXX maps.ini so mapchooser uses mapcyclefile.
+      rm -f /opt/steam/hlds/cstrike/addons/amxmodx/configs/maps.ini; \
     fi \
     && if [[ "$CS16_PLUGINS_INI" == "plugins-biohazard.ini" ]]; then \
       MOTD_CFG="/opt/steam/hlds/cstrike/addons/amxmodx/configs/biohazard_motd_en.html"; \

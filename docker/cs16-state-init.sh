@@ -89,6 +89,29 @@ for cfg in banned.cfg listip.cfg config.cfg; do
 	seed_cfg_file "${STATE}/hlds-meta/${cfg}" "${BOOTSTRAP}/hlds-meta/${cfg}"
 done
 
+# Host bind-mounts for permanent bans (compose overlays these over the volume).
+# Ensure the host files exist so Podman/Docker can mount them as files (not dirs).
+if [[ -d /host/cs16-state ]]; then
+	for cfg in banned.cfg listip.cfg; do
+		host_cfg="/host/cs16-state/${cfg}"
+		if [[ -d "$host_cfg" ]]; then
+			echo "[cs16-state-init] removing invalid directory ${host_cfg}" >&2
+			rm -rf "$host_cfg"
+		fi
+		if [[ ! -f "$host_cfg" ]]; then
+			if [[ -s "${STATE}/hlds-meta/${cfg}" ]]; then
+				cp "${STATE}/hlds-meta/${cfg}" "$host_cfg"
+			elif [[ -f "${BOOTSTRAP}/hlds-meta/${cfg}" ]]; then
+				cp "${BOOTSTRAP}/hlds-meta/${cfg}" "$host_cfg"
+			else
+				: >"$host_cfg"
+			fi
+			echo "[cs16-state-init] Created host ${cfg} for bind-mount"
+		fi
+		chown steam:steam "$host_cfg" 2>/dev/null || true
+	done
+fi
+
 for profile in respawn biohazard; do
 	seed_cfg_file \
 		"${STATE}/hlds-meta-${profile}/config.cfg" \
